@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// === AUTH & USERS ===
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  image           String?
+  password        String?
+  plan            Plan      @default(FREE)
+  accounts        Account[]
+  trackedChannels TrackedChannel[]
+  trackedAccounts TrackedAccount[]
+  savedSearches   SavedSearch[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  access_token      String?
+  refresh_token     String?
+  expires_at        Int?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
+// === YOUTUBE ===
+
+model YouTubeChannel {
+  id              String   @id
+  title           String
+  description     String?
+  subscriberCount BigInt?
+  videoCount      Int?
+  viewCount       BigInt?
+  thumbnailUrl    String?
+  country         String?
+  snapshots       YouTubeChannelSnapshot[]
+  videos          YouTubeVideo[]
+  trackedBy       TrackedChannel[]
+  updatedAt       DateTime @updatedAt
+}
+
+model YouTubeChannelSnapshot {
+  id              String   @id @default(cuid())
+  channelId       String
+  subscriberCount BigInt
+  videoCount      Int
+  viewCount       BigInt
+  channel         YouTubeChannel @relation(fields: [channelId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@index([channelId, createdAt])
+}
+
+model YouTubeVideo {
+  id           String   @id
+  channelId    String
+  title        String
+  description  String?
+  publishedAt  DateTime
+  viewCount    BigInt   @default(0)
+  likeCount    Int      @default(0)
+  commentCount Int      @default(0)
+  duration     String?
+  thumbnailUrl String?
+  tags         String[]
+  categoryId   String?
+  channel      YouTubeChannel @relation(fields: [channelId], references: [id])
+  snapshots    YouTubeVideoSnapshot[]
+  updatedAt    DateTime @updatedAt
+
+  @@index([channelId, publishedAt])
+}
+
+model YouTubeVideoSnapshot {
+  id           String   @id @default(cuid())
+  videoId      String
+  viewCount    BigInt
+  likeCount    Int
+  commentCount Int
+  video        YouTubeVideo @relation(fields: [videoId], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([videoId, createdAt])
+}
+
+// === THREADS ===
+
+model ThreadsAccount {
+  id             String   @id
+  username       String   @unique
+  displayName    String?
+  bio            String?
+  followerCount  Int?
+  followingCount Int?
+  profilePicUrl  String?
+  snapshots      ThreadsAccountSnapshot[]
+  posts          ThreadsPost[]
+  updatedAt      DateTime @updatedAt
+}
+
+model ThreadsAccountSnapshot {
+  id             String   @id @default(cuid())
+  accountId      String
+  followerCount  Int
+  followingCount Int
+  account        ThreadsAccount @relation(fields: [accountId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+model ThreadsPost {
+  id          String   @id
+  accountId   String
+  text        String?
+  mediaUrl    String?
+  mediaType   String?
+  likeCount   Int      @default(0)
+  replyCount  Int      @default(0)
+  repostCount Int      @default(0)
+  publishedAt DateTime
+  account     ThreadsAccount @relation(fields: [accountId], references: [id])
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId, publishedAt])
+}
+
+// === INSTAGRAM ===
+
+model InstagramAccount {
+  id             String   @id
+  username       String   @unique
+  displayName    String?
+  bio            String?
+  followerCount  Int?
+  followingCount Int?
+  mediaCount     Int?
+  profilePicUrl  String?
+  snapshots      InstagramAccountSnapshot[]
+  posts          InstagramPost[]
+  updatedAt      DateTime @updatedAt
+}
+
+model InstagramAccountSnapshot {
+  id             String   @id @default(cuid())
+  accountId      String
+  followerCount  Int
+  followingCount Int
+  mediaCount     Int
+  account        InstagramAccount @relation(fields: [accountId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+model InstagramPost {
+  id           String   @id
+  accountId    String
+  caption      String?
+  mediaUrl     String?
+  mediaType    String?
+  likeCount    Int      @default(0)
+  commentCount Int      @default(0)
+  permalink    String?
+  hashtags     String[]
+  publishedAt  DateTime
+  account      InstagramAccount @relation(fields: [accountId], references: [id])
+  updatedAt    DateTime @updatedAt
+
+  @@index([accountId, publishedAt])
+}
+
+// === CROSS-PLATFORM ===
+
+model TrackedChannel {
+  id        String   @id @default(cuid())
+  userId    String
+  channelId String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   YouTubeChannel @relation(fields: [channelId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, channelId])
+}
+
+model TrackedAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  Platform
+  accountId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, platform, accountId])
+}
+
+enum Platform {
+  YOUTUBE
+  THREADS
+  INSTAGRAM
+}
+
+model TrendingTopic {
+  id           String   @id @default(cuid())
+  platform     Platform
+  keyword      String
+  score        Float
+  category     String?
+  region       String   @default("KR")
+  metadata     Json?
+  discoveredAt DateTime @default(now())
+
+  @@index([platform, discoveredAt])
+  @@index([keyword])
+}
+
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  Platform
+  query     String
+  filters   Json?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model ContentRecommendation {
+  id          String   @id @default(cuid())
+  platform    Platform
+  title       String
+  description String?
+  sourceUrl   String?
+  score       Float
+  category    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([platform, createdAt])
+  @@index([score])
+}

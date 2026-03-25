@@ -25,6 +25,7 @@ const navItems = [
       { label: "트렌딩", href: "/youtube/trending" },
       { label: "채널 분석", href: "/youtube/channel" },
       { label: "키워드 리서치", href: "/youtube/keywords" },
+      { label: "인사이트", href: "/youtube/insights" },
     ],
   },
   {

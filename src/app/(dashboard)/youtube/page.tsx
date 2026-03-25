@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TrendingUp, Search, BarChart3, FileText } from "lucide-react";
+import { TrendingUp, Search, BarChart3, FileText, Sparkles } from "lucide-react";
 import { YoutubeIcon } from "@/components/ui/icons";
 
 export default function YouTubePage() {
@@ -57,6 +57,17 @@ export default function YouTubePage() {
           <h2 className="mt-3 text-lg font-semibold">키워드 리서치</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             인기 키워드를 검색하고 관련 영상을 분석하세요
+          </p>
+        </Link>
+
+        <Link
+          href="/youtube/title-optimizer"
+          className="rounded-xl border border-border bg-card p-6 transition-all hover:border-red-300 hover:shadow-md"
+        >
+          <Sparkles className="h-8 w-8 text-red-500" />
+          <h2 className="mt-3 text-lg font-semibold">제목 최적화</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            제목을 입력하면 SEO 점수와 개선 제안을 실시간으로 받아보세요
           </p>
         </Link>
       </div>

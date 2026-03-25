@@ -306,7 +306,7 @@ export default function YouTubeTrendingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sortMode, setSortMode] = useState<"trending" | "viral">("trending");
-  const [shortsOnly, setShortsOnly] = useState(false);
+  const [durationFilter, setDurationFilter] = useState<"all" | "shorts" | "long">("all");
 
   const fetchTrending = useCallback(async (categoryId?: string) => {
     setLoading(true);
@@ -363,10 +363,15 @@ export default function YouTubeTrendingPage() {
 
   const displayVideos = (() => {
     let result = [...videos];
-    if (shortsOnly) {
+    if (durationFilter === "shorts") {
       result = result.filter((v) => {
         if (!v.contentDetails?.duration) return false;
         return parseDurationSeconds(v.contentDetails.duration) < 60;
+      });
+    } else if (durationFilter === "long") {
+      result = result.filter((v) => {
+        if (!v.contentDetails?.duration) return true;
+        return parseDurationSeconds(v.contentDetails.duration) >= 60;
       });
     }
     if (sortMode === "viral") {
@@ -425,18 +430,41 @@ export default function YouTubeTrendingPage() {
           </button>
         </div>
 
-        {/* Shorts Toggle */}
-        <button
-          onClick={() => setShortsOnly(!shortsOnly)}
-          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-            shortsOnly
-              ? "border-red-500 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-              : "border-border bg-card text-muted-foreground hover:bg-secondary"
-          }`}
-        >
-          <Zap className="h-3.5 w-3.5" />
-          Shorts만
-        </button>
+        {/* Duration Filter */}
+        <div className="flex rounded-lg border border-border bg-card p-1">
+          <button
+            onClick={() => setDurationFilter("all")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              durationFilter === "all"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary"
+            }`}
+          >
+            전체
+          </button>
+          <button
+            onClick={() => setDurationFilter("shorts")}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              durationFilter === "shorts"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary"
+            }`}
+          >
+            <Zap className="h-3.5 w-3.5" />
+            숏폼
+          </button>
+          <button
+            onClick={() => setDurationFilter("long")}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              durationFilter === "long"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary"
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            롱폼
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -462,7 +490,7 @@ export default function YouTubeTrendingPage() {
           {displayVideos.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-12 text-center">
               <p className="text-muted-foreground">
-                {shortsOnly ? "이 카테고리에 Shorts 영상이 없습니다" : "이 카테고리에 트렌딩 영상이 없습니다"}
+                {durationFilter === "shorts" ? "이 카테고리에 숏폼 영상이 없습니다" : durationFilter === "long" ? "이 카테고리에 롱폼 영상이 없습니다" : "이 카테고리에 트렌딩 영상이 없습니다"}
               </p>
             </div>
           ) : (

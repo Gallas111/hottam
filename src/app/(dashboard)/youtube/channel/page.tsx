@@ -122,6 +122,7 @@ export default function ChannelAnalysisPage() {
               <img
                 src={channel.thumbnailUrl}
                 alt={channel.title}
+                loading="lazy"
                 className="h-20 w-20 rounded-full"
               />
               <div className="min-w-0 flex-1">
@@ -185,6 +186,7 @@ export default function ChannelAnalysisPage() {
                     <img
                       src={video.thumbnailUrl}
                       alt={video.title}
+                      loading="lazy"
                       className="h-16 w-28 flex-shrink-0 rounded-md object-cover"
                     />
                     <div className="min-w-0 flex-1">

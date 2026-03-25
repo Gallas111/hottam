@@ -254,6 +254,7 @@ export default function VideoAnalysisPage() {
               <img
                 src={video.thumbnailUrl}
                 alt={video.title}
+                loading="lazy"
                 className="w-full rounded-lg object-cover sm:h-40 sm:w-72"
               />
               <div className="min-w-0 flex-1">

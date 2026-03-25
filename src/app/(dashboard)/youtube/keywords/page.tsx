@@ -141,7 +141,8 @@ export default function KeywordsPage() {
             <img
               src={video.thumbnailUrl}
               alt={video.title}
-              className="h-24 w-42 flex-shrink-0 rounded-lg object-cover"
+              loading="lazy"
+              className="h-24 w-40 flex-shrink-0 rounded-lg object-cover"
             />
             <div className="min-w-0 flex-1">
               <h3 className="line-clamp-2 text-sm font-semibold sm:text-base">

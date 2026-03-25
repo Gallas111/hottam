@@ -512,7 +512,8 @@ export default function YouTubeTrendingPage() {
                     <img
                       src={video.snippet.thumbnails.high?.url ?? video.snippet.thumbnails.medium?.url ?? ""}
                       alt={video.snippet.title}
-                      className="h-24 w-42 rounded-lg object-cover sm:h-28 sm:w-50"
+                      loading="lazy"
+                      className="h-24 w-40 rounded-lg object-cover sm:h-28 sm:w-48"
                     />
                     {video.contentDetails?.duration && (
                       <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white">

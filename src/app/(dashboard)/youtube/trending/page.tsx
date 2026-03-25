@@ -351,13 +351,13 @@ export default function YouTubeTrendingPage() {
 
   const categoryMap = new Map(categories.map((c) => [c.id, c.snippet.title]));
 
-  const totalViews = videos.reduce((s, v) => s + parseInt(v.statistics.viewCount), 0);
+  const totalViews = videos.reduce((s, v) => s + (parseInt(v.statistics.viewCount) || 0), 0);
   const avgViews = videos.length > 0 ? Math.round(totalViews / videos.length) : 0;
   const avgEng = videos.length > 0
     ? videos.reduce((s, v) => s + engagement(
-        parseInt(v.statistics.viewCount),
-        parseInt(v.statistics.likeCount),
-        parseInt(v.statistics.commentCount)
+        parseInt(v.statistics.viewCount) || 0,
+        parseInt(v.statistics.likeCount) || 0,
+        parseInt(v.statistics.commentCount) || 0
       ), 0) / videos.length
     : 0;
 
@@ -539,15 +539,15 @@ export default function YouTubeTrendingPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Eye className="h-3.5 w-3.5" />
-                        {formatNum(parseInt(video.statistics.viewCount))}
+                        {formatNum(parseInt(video.statistics.viewCount) || 0)}
                       </span>
                       <span className="flex items-center gap-1">
                         <ThumbsUp className="h-3.5 w-3.5" />
-                        {formatNum(parseInt(video.statistics.likeCount))}
+                        {formatNum(parseInt(video.statistics.likeCount) || 0)}
                       </span>
                       <span className="flex items-center gap-1">
                         <MessageCircle className="h-3.5 w-3.5" />
-                        {formatNum(parseInt(video.statistics.commentCount))}
+                        {formatNum(parseInt(video.statistics.commentCount) || 0)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5" />
@@ -588,9 +588,9 @@ export default function YouTubeTrendingPage() {
                     })()}
                     <div className="text-sm font-semibold text-primary">
                       {engagement(
-                        parseInt(video.statistics.viewCount),
-                        parseInt(video.statistics.likeCount),
-                        parseInt(video.statistics.commentCount)
+                        parseInt(video.statistics.viewCount) || 0,
+                        parseInt(video.statistics.likeCount) || 0,
+                        parseInt(video.statistics.commentCount) || 0
                       ).toFixed(2)}%
                     </div>
                     <div className="text-xs text-muted-foreground">인게이지먼트</div>

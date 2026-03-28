@@ -32,6 +32,7 @@ interface ChannelInfo {
   subscriberCount: string;
   videoCount: string;
   viewCount: string;
+  videos?: Array<{ viewCount: string; likeCount: string; commentCount: string }>;
 }
 
 interface CompetingVideo {
@@ -252,6 +253,7 @@ export default function VideoAnalysisPage() {
             subscriberCount: chData.subscriberCount,
             videoCount: chData.videoCount,
             viewCount: chData.viewCount,
+            videos: chData.videos,
           });
         }
       } catch {
@@ -378,6 +380,51 @@ export default function VideoAnalysisPage() {
               </div>
             </Card>
           )}
+
+          {/* Performance vs Channel Average */}
+          {channelInfo?.videos && channelInfo.videos.length > 0 && video && (() => {
+            const chVideos = channelInfo.videos!;
+            const chAvgViews = Math.round(chVideos.reduce((s, v) => s + (parseInt(v.viewCount) || 0), 0) / chVideos.length);
+            const chAvgLikes = Math.round(chVideos.reduce((s, v) => s + (parseInt(v.likeCount) || 0), 0) / chVideos.length);
+            const chAvgComments = Math.round(chVideos.reduce((s, v) => s + (parseInt(v.commentCount) || 0), 0) / chVideos.length);
+            const viewRatio = chAvgViews > 0 ? (parseInt(video.viewCount) || 0) / chAvgViews : 0;
+            const likeRatioVsCh = chAvgLikes > 0 ? (parseInt(video.likeCount) || 0) / chAvgLikes : 0;
+            const commentRatioVsCh = chAvgComments > 0 ? (parseInt(video.commentCount) || 0) / chAvgComments : 0;
+
+            return (
+              <Card className="mb-6">
+                <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />채널 평균 대비 성과</CardTitle></CardHeader>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    { label: "조회수", ratio: viewRatio, avg: chAvgViews },
+                    { label: "좋아요", ratio: likeRatioVsCh, avg: chAvgLikes },
+                    { label: "댓글", ratio: commentRatioVsCh, avg: chAvgComments },
+                  ].map((m) => (
+                    <div key={m.label} className="rounded-lg border border-border p-3 text-center">
+                      <p className="text-xs text-muted-foreground">{m.label}</p>
+                      <p className={`text-2xl font-bold ${m.ratio >= 2 ? "text-green-500" : m.ratio >= 1 ? "text-blue-500" : m.ratio >= 0.5 ? "text-yellow-500" : "text-red-500"}`}>
+                        {m.ratio.toFixed(1)}x
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.ratio >= 2 ? "채널 평균의 2배 이상!" : m.ratio >= 1 ? "평균 이상" : m.ratio >= 0.5 ? "평균 이하" : "저조한 성과"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">채널 평균: {formatNum(m.avg)}</p>
+                    </div>
+                  ))}
+                </div>
+                {viewRatio >= 2 && (
+                  <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+                    이 영상은 채널 평균보다 {viewRatio.toFixed(1)}배 잘 됐어요. 이 주제/형식을 더 만들면 성장에 유리해요!
+                  </div>
+                )}
+                {viewRatio < 0.5 && (
+                  <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                    이 영상은 채널 평균보다 낮아요. 제목, 썸네일, 주제를 다시 점검해보세요.
+                  </div>
+                )}
+              </Card>
+            );
+          })()}
 
           {/* Stats */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

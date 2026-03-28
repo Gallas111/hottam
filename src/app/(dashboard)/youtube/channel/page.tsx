@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BarChart3, Search, Users, Eye, Video, ExternalLink, Trophy } from "lucide-react";
+import { BarChart3, Search, Users, Eye, Video, ExternalLink, Trophy, TrendingUp, TrendingDown, ThumbsUp, MessageCircle } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { UsageGuide } from "@/components/ui/usage-guide";
@@ -179,42 +179,78 @@ export default function ChannelAnalysisPage() {
             />
           </div>
 
-          {/* Recent Videos */}
-          {channel.videos && channel.videos.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>최근 영상</CardTitle>
-              </CardHeader>
-              <div className="space-y-3">
-                {channel.videos.map((video) => (
-                  <a
-                    key={video.id}
-                    href={`https://www.youtube.com/watch?v=${video.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-secondary"
-                  >
-                    <img
-                      src={video.thumbnailUrl}
-                      alt={video.title}
-                      loading="lazy"
-                      className="h-16 w-28 flex-shrink-0 rounded-md object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-1 text-sm font-medium">
-                        {video.title}
-                      </p>
-                      <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
-                        <span>조회수 {formatNum(video.viewCount)}</span>
-                        <span>좋아요 {formatNum(video.likeCount)}</span>
-                        <span>댓글 {formatNum(video.commentCount)}</span>
-                      </div>
+          {/* Best / Worst Videos */}
+          {channel.videos && channel.videos.length >= 3 && (() => {
+            const sorted = [...channel.videos].sort((a, b) => (parseInt(b.viewCount) || 0) - (parseInt(a.viewCount) || 0));
+            const avgViews = Math.round(sorted.reduce((sum, v) => sum + (parseInt(v.viewCount) || 0), 0) / sorted.length);
+            const best = sorted.slice(0, 3);
+            const worst = sorted.slice(-3).reverse();
+
+            function VideoRow({ video, badge, badgeColor }: { video: typeof sorted[0]; badge: string; badgeColor: string }) {
+              const views = parseInt(video.viewCount) || 0;
+              const ratio = avgViews > 0 ? (views / avgViews) : 0;
+              return (
+                <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-secondary">
+                  <div className="relative flex-shrink-0">
+                    <img src={video.thumbnailUrl} alt={video.title} loading="lazy" className="h-16 w-28 rounded-md object-cover" />
+                    <span className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-xs font-bold text-white ${badgeColor}`}>{badge}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-sm font-medium">{video.title}</p>
+                    <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatNum(video.viewCount)}</span>
+                      <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" />{formatNum(video.likeCount)}</span>
+                      <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{formatNum(video.commentCount)}</span>
                     </div>
-                  </a>
-                ))}
-              </div>
-            </Card>
-          )}
+                    <div className="mt-1">
+                      <span className={`text-xs font-semibold ${ratio >= 1.5 ? "text-green-500" : ratio >= 0.8 ? "text-blue-500" : "text-red-500"}`}>
+                        채널 평균의 {ratio.toFixed(1)}배
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              );
+            }
+
+            return (
+              <>
+                <div className="mb-4 rounded-xl border border-border bg-card p-4 text-center">
+                  <p className="text-xs text-muted-foreground">최근 영상 평균 조회수</p>
+                  <p className="text-2xl font-bold">{formatNum(avgViews)}</p>
+                </div>
+
+                <div className="mb-6 grid gap-4 sm:grid-cols-2">
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-green-500"><TrendingUp className="h-5 w-5" />베스트 영상 TOP 3</CardTitle></CardHeader>
+                    <div className="space-y-2">{best.map((v, i) => <VideoRow key={v.id} video={v} badge={`#${i + 1}`} badgeColor="bg-green-500" />)}</div>
+                  </Card>
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-red-500"><TrendingDown className="h-5 w-5" />저조한 영상 BOTTOM 3</CardTitle></CardHeader>
+                    <div className="space-y-2">{worst.map((v, i) => <VideoRow key={v.id} video={v} badge={`#${sorted.length - 2 + i}`} badgeColor="bg-red-500" />)}</div>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader><CardTitle>전체 최근 영상</CardTitle></CardHeader>
+                  <div className="space-y-3">
+                    {channel.videos.map((video) => (
+                      <a key={video.id} href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-secondary">
+                        <img src={video.thumbnailUrl} alt={video.title} loading="lazy" className="h-16 w-28 flex-shrink-0 rounded-md object-cover" />
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-1 text-sm font-medium">{video.title}</p>
+                          <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatNum(video.viewCount)}</span>
+                            <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" />{formatNum(video.likeCount)}</span>
+                            <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{formatNum(video.commentCount)}</span>
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </Card>
+              </>
+            );
+          })()}
         </div>
       )}
 

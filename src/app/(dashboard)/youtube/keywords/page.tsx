@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Search, Eye, ThumbsUp, MessageCircle, Clock, BarChart3, TrendingUp, Zap, Hash } from "lucide-react";
 import { UsageGuide } from "@/components/ui/usage-guide";
 
@@ -37,10 +37,39 @@ export default function KeywordsPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
   const [totalResults, setTotalResults] = useState(0);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [stats, setStats] = useState<KeywordStats | null>(null);
   const [relatedKeywords, setRelatedKeywords] = useState<string[]>([]);
 
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (value.trim().length >= 2) {
+      suggestTimer.current = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/youtube/suggest?q=${encodeURIComponent(value.trim())}`);
+          const data = await res.json();
+          setSuggestions(data.suggestions || []);
+          setShowSuggestions(true);
+        } catch {
+          setSuggestions([]);
+        }
+      }, 300);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }
+
+  function selectSuggestion(s: string) {
+    setQuery(s);
+    setShowSuggestions(false);
+  }
+
   async function handleSearch(e: React.FormEvent) {
+    setShowSuggestions(false);
     e.preventDefault();
     if (!query.trim()) return;
 
@@ -210,10 +239,29 @@ export default function KeywordsPage() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               placeholder="검색할 키워드 입력..."
               className="w-full rounded-lg border border-border bg-card py-3 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              autoComplete="off"
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-lg border border-border bg-card shadow-lg">
+                <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">유튜브 검색 추천</div>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onMouseDown={() => selectSuggestion(s)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-secondary"
+                  >
+                    <Search className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <select
             value={order}

@@ -308,6 +308,7 @@ export default function YouTubeTrendingPage() {
   const [error, setError] = useState("");
   const [sortMode, setSortMode] = useState<"trending" | "viral">("trending");
   const [durationFilter, setDurationFilter] = useState<"all" | "shorts" | "long">("all");
+  const [timeFilter, setTimeFilter] = useState<"all" | "24h" | "3d" | "7d">("all");
 
   const fetchTrending = useCallback(async (categoryId?: string) => {
     setLoading(true);
@@ -364,6 +365,17 @@ export default function YouTubeTrendingPage() {
 
   const displayVideos = (() => {
     let result = [...videos];
+
+    // Time filter
+    if (timeFilter !== "all") {
+      const now = Date.now();
+      const cutoff = timeFilter === "24h" ? 24 * 60 * 60 * 1000
+        : timeFilter === "3d" ? 3 * 24 * 60 * 60 * 1000
+        : 7 * 24 * 60 * 60 * 1000;
+      result = result.filter((v) => now - new Date(v.snippet.publishedAt).getTime() < cutoff);
+    }
+
+    // Duration filter
     if (durationFilter === "shorts") {
       result = result.filter((v) => {
         if (!v.contentDetails?.duration) return false;
@@ -475,6 +487,23 @@ export default function YouTubeTrendingPage() {
             <Clock className="h-3.5 w-3.5" />
             롱폼
           </button>
+        </div>
+
+        {/* Time Filter */}
+        <div className="flex rounded-lg border border-border bg-card p-1">
+          {([["all", "전체"], ["24h", "24시간"], ["3d", "3일"], ["7d", "7일"]] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setTimeFilter(val)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                timeFilter === val
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 

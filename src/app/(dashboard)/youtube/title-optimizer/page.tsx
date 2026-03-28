@@ -316,6 +316,8 @@ interface TrendingVideo {
 
 export default function TitleOptimizerPage() {
   const [title, setTitle] = useState("");
+  const [titleB, setTitleB] = useState("");
+  const [showAB, setShowAB] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [trendingTitles, setTrendingTitles] = useState<TrendingVideo[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(false);
@@ -363,6 +365,8 @@ export default function TitleOptimizerPage() {
   };
 
   const score = analysis?.score ?? 0;
+  const analysisB = titleB.trim() ? analyzeTitle(titleB.trim()) : null;
+  const scoreB = analysisB?.score ?? 0;
   const circumference = 2 * Math.PI * 54;
   const dashOffset = circumference - (circumference * score) / 100;
 
@@ -429,6 +433,47 @@ export default function TitleOptimizerPage() {
             )}
           </span>
           <span>권장: 30~60자</span>
+        </div>
+
+        {/* A/B Compare Toggle */}
+        <div className="mt-4 border-t border-border pt-4">
+          {!showAB ? (
+            <button onClick={() => setShowAB(true)} className="text-sm text-primary hover:underline">
+              제목 A/B 비교하기 →
+            </button>
+          ) : (
+            <>
+              <label htmlFor="title-b" className="mb-2 block text-sm font-medium text-muted-foreground">
+                비교할 제목 B
+              </label>
+              <input
+                id="title-b"
+                type="text"
+                value={titleB}
+                onChange={(e) => setTitleB(e.target.value)}
+                placeholder="두 번째 제목 후보 입력..."
+                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-lg outline-none transition-colors focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                maxLength={150}
+              />
+              {title.trim() && titleB.trim() && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className={`rounded-lg border-2 p-4 text-center ${score > scoreB ? "border-green-500 bg-green-50 dark:bg-green-950" : score === scoreB ? "border-border" : "border-border"}`}>
+                    <p className="text-xs text-muted-foreground">제목 A</p>
+                    <p className="mt-1 text-sm font-medium line-clamp-2">{title}</p>
+                    <p className={`mt-2 text-3xl font-bold ${score >= 70 ? "text-green-500" : score >= 40 ? "text-yellow-500" : "text-red-500"}`}>{score}점</p>
+                    {score > scoreB && <span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700 dark:bg-green-900 dark:text-green-300">승자</span>}
+                  </div>
+                  <div className={`rounded-lg border-2 p-4 text-center ${scoreB > score ? "border-green-500 bg-green-50 dark:bg-green-950" : scoreB === score ? "border-border" : "border-border"}`}>
+                    <p className="text-xs text-muted-foreground">제목 B</p>
+                    <p className="mt-1 text-sm font-medium line-clamp-2">{titleB}</p>
+                    <p className={`mt-2 text-3xl font-bold ${scoreB >= 70 ? "text-green-500" : scoreB >= 40 ? "text-yellow-500" : "text-red-500"}`}>{scoreB}점</p>
+                    {scoreB > score && <span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-700 dark:bg-green-900 dark:text-green-300">승자</span>}
+                  </div>
+                </div>
+              )}
+              <button onClick={() => { setShowAB(false); setTitleB(""); }} className="mt-2 text-xs text-muted-foreground hover:underline">닫기</button>
+            </>
+          )}
         </div>
       </div>
 

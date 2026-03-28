@@ -431,14 +431,14 @@ export default function KeywordsPage() {
             href={`https://www.youtube.com/watch?v=${video.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:shadow-md"
+            className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-all hover:shadow-md sm:flex-row sm:gap-4"
           >
             <div className="relative flex-shrink-0">
               <img
                 src={video.thumbnailUrl}
                 alt={video.title}
                 loading="lazy"
-                className="h-24 w-40 rounded-lg object-cover"
+                className="h-40 w-full rounded-lg object-cover sm:h-24 sm:w-40"
               />
               <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-xs font-bold text-white">
                 #{idx + 1}

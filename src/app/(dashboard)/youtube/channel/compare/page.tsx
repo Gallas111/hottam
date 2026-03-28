@@ -214,7 +214,7 @@ export default function ChannelComparePage() {
       {channels.length >= 2 && (
         <div>
           {/* Channel Headers */}
-          <div className="mb-6 grid gap-4" style={{ gridTemplateColumns: `repeat(${channels.length}, minmax(0, 1fr))` }}>
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {channels.map((ch, i) => (
               <Card key={ch.id} className="text-center">
                 <div className="mx-auto mb-2 h-1.5 w-20 rounded-full" style={{ backgroundColor: COLORS[i] }} />
@@ -291,7 +291,7 @@ export default function ChannelComparePage() {
           {/* Recent Videos (Top 3 per channel) */}
           <Card>
             <CardHeader><CardTitle>최근 영상 비교</CardTitle></CardHeader>
-            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${channels.length}, minmax(0, 1fr))` }}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {channels.map((ch, chIdx) => (
                 <div key={ch.id} className="space-y-3">
                   <div className="flex items-center gap-2">

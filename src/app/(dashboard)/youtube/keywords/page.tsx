@@ -198,43 +198,78 @@ export default function KeywordsPage() {
 
       {/* Keyword Stats Cards */}
       {stats && (
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <BarChart3 className="h-4 w-4" />
-              경쟁도
+        <div className="mb-6">
+          <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <BarChart3 className="h-4 w-4" />
+                경쟁도
+              </div>
+              <p className={`mt-1 text-xl font-bold ${stats.competitionColor}`}>
+                {stats.competitionLevel}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.competitionLevel === "낮음" ? "진입하기 좋은 키워드" : stats.competitionLevel === "보통" ? "적절한 경쟁 수준" : stats.competitionLevel === "높음" ? "차별화 전략 필요" : "틈새 키워드를 찾아보세요"}
+              </p>
             </div>
-            <p className={`mt-1 text-xl font-bold ${stats.competitionColor}`}>
-              {stats.competitionLevel}
-            </p>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Eye className="h-4 w-4" />
+                평균 조회수
+              </div>
+              <p className={`mt-1 text-xl font-bold ${stats.avgViews >= 100000 ? "text-green-500" : stats.avgViews >= 10000 ? "text-blue-500" : stats.avgViews >= 1000 ? "text-yellow-500" : "text-muted-foreground"}`}>
+                {formatNum(stats.avgViews)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.avgViews >= 100000 ? "매우 높음 — 수요가 큰 키워드" : stats.avgViews >= 10000 ? "높음 — 괜찮은 수요" : stats.avgViews >= 1000 ? "보통 — 니치 키워드" : "낮음 — 수요가 적을 수 있어요"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <TrendingUp className="h-4 w-4" />
+                평균 참여율
+              </div>
+              <p className={`mt-1 text-xl font-bold ${stats.avgEngagement >= 5 ? "text-green-500" : stats.avgEngagement >= 2 ? "text-blue-500" : "text-yellow-500"}`}>
+                {stats.avgEngagement.toFixed(2)}%
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.avgEngagement >= 5 ? "매우 높음 — 시청자 반응이 뜨거운 주제" : stats.avgEngagement >= 2 ? "양호 — 평균적인 반응" : "낮음 — 시청만 하고 반응은 적은 주제"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Zap className="h-4 w-4" />
+                최근 30일 업로드
+              </div>
+              <p className={`mt-1 text-xl font-bold ${stats.recentUploads >= 5 ? "text-red-500" : stats.recentUploads >= 2 ? "text-yellow-500" : "text-green-500"}`}>
+                {stats.recentUploads}개
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.recentUploads >= 5 ? "경쟁 과열 — 최근 업로드 많음" : stats.recentUploads >= 2 ? "적당한 활동량" : "블루오션 — 최근 올리는 사람이 적어요"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Hash className="h-4 w-4" />
+                총 결과
+              </div>
+              <p className="mt-1 text-xl font-bold">{formatNum(totalResults)}</p>
+            </div>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Eye className="h-4 w-4" />
-              평균 조회수
+
+          {/* 키워드 판단 가이드 */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+            <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">키워드 판단 가이드</p>
+            <div className="mt-2 grid gap-2 text-xs text-blue-600 dark:text-blue-400 sm:grid-cols-2">
+              <div>
+                <p className="font-medium">좋은 키워드 (공략 추천)</p>
+                <p>평균 조회수 높음 + 경쟁도 낮음/보통 + 최근 업로드 적음</p>
+              </div>
+              <div>
+                <p className="font-medium">피해야 할 키워드</p>
+                <p>경쟁도 매우 높음 + 최근 업로드 많음 + 참여율 낮음</p>
+              </div>
             </div>
-            <p className="mt-1 text-xl font-bold">{formatNum(stats.avgViews)}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <TrendingUp className="h-4 w-4" />
-              평균 참여율
-            </div>
-            <p className="mt-1 text-xl font-bold">{stats.avgEngagement.toFixed(2)}%</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Zap className="h-4 w-4" />
-              최근 30일 업로드
-            </div>
-            <p className="mt-1 text-xl font-bold">{stats.recentUploads}개</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Hash className="h-4 w-4" />
-              총 결과
-            </div>
-            <p className="mt-1 text-xl font-bold">{formatNum(totalResults)}</p>
           </div>
         </div>
       )}

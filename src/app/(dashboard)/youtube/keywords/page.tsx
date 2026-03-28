@@ -22,8 +22,12 @@ interface KeywordStats {
   avgComments: number;
   avgEngagement: number;
   recentUploads: number;
+  recentAvgViews: number;
+  avgViewsPerHour: number;
   competitionLevel: string;
   competitionColor: string;
+  opportunity: string;
+  opportunityColor: string;
 }
 
 export default function KeywordsPage() {
@@ -64,27 +68,56 @@ export default function KeywordsPage() {
         const avgComments = Math.round(comments.reduce((a, b) => a + b, 0) / comments.length);
         const avgEngagement = avgViews > 0 ? ((avgLikes + avgComments) / avgViews) * 100 : 0;
 
-        // Count videos uploaded in last 30 days
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        const recentUploads = videos.filter(
-          (v) => new Date(v.publishedAt).getTime() > thirtyDaysAgo
-        ).length;
+        // Count videos uploaded in last 90 days
+        const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        const recentVideos = videos.filter(
+          (v) => new Date(v.publishedAt).getTime() > ninetyDaysAgo
+        );
+        const recentUploads = recentVideos.length;
 
-        // Competition level based on avg views and recent uploads
+        // Recent videos average views (this is the real demand signal)
+        const recentAvgViews = recentVideos.length > 0
+          ? Math.round(recentVideos.reduce((sum, v) => sum + (parseInt(v.viewCount) || 0), 0) / recentVideos.length)
+          : 0;
+
+        // Views per hour (viral velocity) for recent videos
+        const avgViewsPerHour = recentVideos.length > 0
+          ? Math.round(recentVideos.reduce((sum, v) => {
+              const vw = parseInt(v.viewCount) || 0;
+              const hours = (Date.now() - new Date(v.publishedAt).getTime()) / (1000 * 60 * 60);
+              return sum + (hours > 0 ? vw / hours : 0);
+            }, 0) / recentVideos.length)
+          : 0;
+
+        // Competition level based on RECENT video performance
         let competitionLevel = "낮음";
         let competitionColor = "text-green-500";
-        if (avgViews > 100000 && recentUploads >= 5) {
+        if (recentAvgViews > 100000 && recentUploads >= 5) {
           competitionLevel = "매우 높음";
           competitionColor = "text-red-500";
-        } else if (avgViews > 50000 && recentUploads >= 3) {
+        } else if (recentAvgViews > 50000 && recentUploads >= 3) {
           competitionLevel = "높음";
           competitionColor = "text-orange-500";
-        } else if (avgViews > 10000) {
+        } else if (recentAvgViews > 10000 || recentUploads >= 5) {
           competitionLevel = "보통";
           competitionColor = "text-yellow-500";
         }
 
-        setStats({ avgViews, avgLikes, avgComments, avgEngagement, recentUploads, competitionLevel, competitionColor });
+        // Opportunity score: high recent views + low competition = good opportunity
+        let opportunity = "낮음";
+        let opportunityColor = "text-muted-foreground";
+        if (recentAvgViews > 10000 && recentUploads <= 3) {
+          opportunity = "매우 좋음";
+          opportunityColor = "text-green-500";
+        } else if (recentAvgViews > 5000 && recentUploads <= 5) {
+          opportunity = "좋음";
+          opportunityColor = "text-blue-500";
+        } else if (recentAvgViews > 1000) {
+          opportunity = "보통";
+          opportunityColor = "text-yellow-500";
+        }
+
+        setStats({ avgViews, avgLikes, avgComments, avgEngagement, recentUploads, recentAvgViews, avgViewsPerHour, competitionLevel, competitionColor, opportunity, opportunityColor });
 
         // Extract related keywords from titles
         const words = videos
@@ -210,11 +243,36 @@ export default function KeywordsPage() {
       {/* Keyword Stats Cards */}
       {stats && (
         <div className="mb-6">
-          <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Row 1: Key decision metrics */}
+          <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-xl border-2 border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Zap className="h-4 w-4" />
+                기회 점수
+              </div>
+              <p className={`mt-1 text-2xl font-bold ${stats.opportunityColor}`}>
+                {stats.opportunity}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.opportunity === "매우 좋음" ? "수요 높고 경쟁 적음 — 지금 바로 만드세요!" : stats.opportunity === "좋음" ? "해볼 만한 키워드예요" : stats.opportunity === "보통" ? "차별화 포인트가 필요해요" : "다른 키워드를 찾아보세요"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Eye className="h-4 w-4" />
+                최근 90일 평균 조회수
+              </div>
+              <p className={`mt-1 text-xl font-bold ${stats.recentAvgViews >= 100000 ? "text-green-500" : stats.recentAvgViews >= 10000 ? "text-blue-500" : stats.recentAvgViews >= 1000 ? "text-yellow-500" : "text-muted-foreground"}`}>
+                {stats.recentAvgViews > 0 ? formatNum(stats.recentAvgViews) : "데이터 없음"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {stats.recentAvgViews >= 100000 ? "핫한 키워드 — 최근 영상도 조회수 폭발" : stats.recentAvgViews >= 10000 ? "살아있는 키워드 — 지금도 수요 있음" : stats.recentAvgViews >= 1000 ? "소규모 수요 — 니치 전략으로" : stats.recentAvgViews > 0 ? "수요 적음 — 다른 키워드 추천" : "최근 90일 내 영상이 없어요"}
+              </p>
+            </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <BarChart3 className="h-4 w-4" />
-                경쟁도
+                경쟁도 (최근 기준)
               </div>
               <p className={`mt-1 text-xl font-bold ${stats.competitionColor}`}>
                 {stats.competitionLevel}
@@ -223,16 +281,20 @@ export default function KeywordsPage() {
                 {stats.competitionLevel === "낮음" ? "진입하기 좋은 키워드" : stats.competitionLevel === "보통" ? "적절한 경쟁 수준" : stats.competitionLevel === "높음" ? "차별화 전략 필요" : "틈새 키워드를 찾아보세요"}
               </p>
             </div>
+          </div>
+
+          {/* Row 2: Detail metrics */}
+          <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Eye className="h-4 w-4" />
-                평균 조회수
+                <TrendingUp className="h-4 w-4" />
+                시간당 조회수 (바이럴)
               </div>
-              <p className={`mt-1 text-xl font-bold ${stats.avgViews >= 100000 ? "text-green-500" : stats.avgViews >= 10000 ? "text-blue-500" : stats.avgViews >= 1000 ? "text-yellow-500" : "text-muted-foreground"}`}>
-                {formatNum(stats.avgViews)}
+              <p className={`mt-1 text-lg font-bold ${stats.avgViewsPerHour >= 500 ? "text-green-500" : stats.avgViewsPerHour >= 50 ? "text-blue-500" : "text-muted-foreground"}`}>
+                {stats.avgViewsPerHour > 0 ? formatNum(stats.avgViewsPerHour) + "/시간" : "-"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {stats.avgViews >= 100000 ? "매우 높음 — 수요가 큰 키워드" : stats.avgViews >= 10000 ? "높음 — 괜찮은 수요" : stats.avgViews >= 1000 ? "보통 — 니치 키워드" : "낮음 — 수요가 적을 수 있어요"}
+                {stats.avgViewsPerHour >= 500 ? "폭발적 — 지금 핫한 주제" : stats.avgViewsPerHour >= 50 ? "꾸준한 유입" : "느린 성장"}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
@@ -240,7 +302,7 @@ export default function KeywordsPage() {
                 <TrendingUp className="h-4 w-4" />
                 평균 참여율
               </div>
-              <p className={`mt-1 text-xl font-bold ${stats.avgEngagement >= 5 ? "text-green-500" : stats.avgEngagement >= 2 ? "text-blue-500" : "text-yellow-500"}`}>
+              <p className={`mt-1 text-lg font-bold ${stats.avgEngagement >= 5 ? "text-green-500" : stats.avgEngagement >= 2 ? "text-blue-500" : "text-yellow-500"}`}>
                 {stats.avgEngagement.toFixed(2)}%
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -249,14 +311,14 @@ export default function KeywordsPage() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Zap className="h-4 w-4" />
-                최근 30일 업로드
+                <Clock className="h-4 w-4" />
+                최근 90일 업로드
               </div>
-              <p className={`mt-1 text-xl font-bold ${stats.recentUploads >= 5 ? "text-red-500" : stats.recentUploads >= 2 ? "text-yellow-500" : "text-green-500"}`}>
-                {stats.recentUploads}개
+              <p className={`mt-1 text-lg font-bold ${stats.recentUploads >= 5 ? "text-red-500" : stats.recentUploads >= 2 ? "text-yellow-500" : "text-green-500"}`}>
+                {stats.recentUploads}개 / 10개 중
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {stats.recentUploads >= 5 ? "경쟁 과열 — 최근 업로드 많음" : stats.recentUploads >= 2 ? "적당한 활동량" : "블루오션 — 최근 올리는 사람이 적어요"}
+                {stats.recentUploads >= 5 ? "경쟁 활발 — 계속 새 영상이 올라옴" : stats.recentUploads >= 2 ? "적당한 활동량" : "블루오션 — 최근 올리는 사람이 적어요"}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
@@ -271,14 +333,18 @@ export default function KeywordsPage() {
           {/* 키워드 판단 가이드 */}
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
             <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">키워드 판단 가이드</p>
-            <div className="mt-2 grid gap-2 text-xs text-blue-600 dark:text-blue-400 sm:grid-cols-2">
+            <div className="mt-2 grid gap-2 text-xs text-blue-600 dark:text-blue-400 sm:grid-cols-3">
               <div>
-                <p className="font-medium">좋은 키워드 (공략 추천)</p>
-                <p>평균 조회수 높음 + 경쟁도 낮음/보통 + 최근 업로드 적음</p>
+                <p className="font-medium">지금 바로 만드세요</p>
+                <p>기회 점수 "매우 좋음" — 최근 영상 조회수 높은데 경쟁은 적음</p>
+              </div>
+              <div>
+                <p className="font-medium">차별화하면 가능</p>
+                <p>기회 점수 "좋음~보통" — 바이럴 속도를 보고 트렌드인지 확인</p>
               </div>
               <div>
                 <p className="font-medium">피해야 할 키워드</p>
-                <p>경쟁도 매우 높음 + 최근 업로드 많음 + 참여율 낮음</p>
+                <p>경쟁 높음 + 최근 업로드 많음 + 바이럴 속도 낮음 = 레드오션</p>
               </div>
             </div>
           </div>

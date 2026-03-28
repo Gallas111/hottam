@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 interface VideoData {
   id: string;
@@ -297,6 +298,16 @@ export default function VideoAnalysisPage() {
           YouTube 영상 URL 또는 ID를 입력하여 상세 분석하세요
         </p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "내가 만들려는 주제의 1위 영상 URL을 넣으세요", description: "키워드 검색에서 조회수 1위 영상의 URL을 복사해서 분석하세요. 이게 벤치마크예요." },
+          { title: "SEO 점수를 보고 부족한 부분을 내 영상에서 채우세요", description: "1위 영상의 태그가 적다면? 내 영상에 태그를 많이 넣으면 유리해요. 설명이 짧다면? 내 영상에 상세 설명을 쓰세요." },
+          { title: "참여율과 좋아요 비율로 콘텐츠 품질을 판단하세요", description: "참여율 5% 이상이면 시청자 반응이 좋은 영상이에요. 이 영상의 구성을 참고하세요." },
+          { title: "경쟁 영상 목록에서 공통 패턴을 찾으세요", description: "상위 영상들이 공통으로 쓰는 제목 구조, 썸네일 스타일, 영상 길이를 파악하세요." },
+        ]}
+        tip="내 영상을 올린 후에도 여기서 분석해보세요. SEO 점수가 낮은 부분을 수정하면 검색 노출이 올라가요."
+      />
 
       {/* Search */}
       <form onSubmit={handleSearch} className="mb-8">

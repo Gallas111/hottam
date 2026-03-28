@@ -13,6 +13,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 interface VideoItem {
   id: string;
@@ -164,6 +165,16 @@ export default function YouTubeInsightsPage() {
           분석합니다
         </p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "최적 업로드 시간을 확인하고 예약 업로드하세요", description: "트렌딩 영상이 가장 많이 올라온 시간대 = 시청자가 활발한 시간이에요. 그 시간에 맞춰 올리세요." },
+          { title: "인기 태그 TOP 30에서 내 영상에 맞는 태그를 골라 쓰세요", description: "태그를 복사해서 내 영상 태그에 바로 넣을 수 있어요. 10~15개가 적당해요." },
+          { title: "트렌딩 채널 TOP 10을 참고하세요", description: "자주 트렌딩에 오르는 채널은 알고리즘이 선호하는 패턴이 있어요. 영상 구성과 업로드 빈도를 참고하세요." },
+          { title: "요일별 패턴을 파악해서 업로드 요일을 정하세요", description: "특정 요일에 트렌딩 영상이 많다면, 그 전날 올려서 노출 기회를 잡으세요." },
+        ]}
+        tip="태그는 '큰 키워드 + 세부 키워드' 조합이 좋아요. 예: '다이어트' + '직장인 다이어트 도시락 레시피'"
+      />
 
       {error && (
         <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">

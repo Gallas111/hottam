@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { TrendingUp, Eye, ThumbsUp, MessageCircle, Clock, Loader2, ChevronDown, Search, X, Flame, Zap } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 const CATEGORY_KO: Record<string, string> = {
   "Film & Animation": "영화/애니메이션",
@@ -394,6 +395,16 @@ export default function YouTubeTrendingPage() {
           한국에서 지금 인기 있는 영상
         </p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "내 채널과 비슷한 카테고리를 선택하세요", description: "예: 먹방 채널이면 '먹방/요리' 카테고리에서 지금 뜨는 영상을 확인하세요." },
+          { title: "바이럴 스코어가 높은 영상의 주제를 메모하세요", description: "시간당 조회수가 높은 영상 = 지금 사람들이 찾는 주제예요. 비슷한 주제로 내 영상을 만드세요." },
+          { title: "트렌딩 영상의 제목 구조를 분석하세요", description: "숫자가 들어가는지, 질문형인지, 어떤 감정 단어를 쓰는지 패턴을 찾으세요." },
+          { title: "숏폼/롱폼 필터로 내 형식에 맞는 트렌드를 보세요", description: "쇼츠를 주로 만든다면 숏폼 필터로, 본편 위주라면 롱폼 필터로 확인하세요." },
+        ]}
+        tip="트렌딩은 매시간 바뀌어요. 아침에 한번, 저녁에 한번 체크하면 하루 트렌드 흐름을 파악할 수 있어요."
+      />
 
       {/* Category Dropdown */}
       <CategoryDropdown

@@ -6,6 +6,7 @@ import {
   ThumbsUp, MessageCircle, TrendingUp, Calendar,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 interface ChannelData {
   id: string;
@@ -155,6 +156,16 @@ export default function ChannelComparePage() {
         </h1>
         <p className="mt-1 text-muted-foreground">유튜브 채널 2~3개를 나란히 비교 분석하세요</p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "내 채널 + 경쟁 채널 1~2개를 입력하세요", description: "나보다 조금 앞서가는 채널을 비교 대상으로 넣으세요. 너무 큰 채널보다 비슷한 규모가 유용해요." },
+          { title: "어떤 지표에서 지고 있는지 확인하세요", description: "구독자는 비슷한데 평균 조회수가 낮다면? 제목/썸네일에 문제가 있을 수 있어요." },
+          { title: "참여율이 높은 채널의 전략을 배우세요", description: "참여율이 높은 채널은 댓글 유도, 질문형 제목 등 시청자 반응을 잘 이끌어내요." },
+          { title: "업로드 빈도를 비교하고 내 목표를 세우세요", description: "경쟁 채널이 주 3회 올리는데 나는 월 2회라면, 빈도를 높이는 것만으로 성장할 수 있어요." },
+        ]}
+        tip="3개월마다 같은 채널을 다시 비교해보세요. 내가 얼마나 따라잡았는지 성장 추이를 확인할 수 있어요."
+      />
 
       {/* Input Form */}
       <form onSubmit={handleCompare} className="mb-8">

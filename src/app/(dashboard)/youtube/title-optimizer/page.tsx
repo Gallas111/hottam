@@ -12,6 +12,7 @@ import {
   Copy,
   Loader2,
 } from "lucide-react";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 /* ─── constants ─── */
 
@@ -378,6 +379,16 @@ export default function TitleOptimizerPage() {
           AI API 없음)
         </p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "키워드 리서치에서 정한 키워드를 제목에 넣어보세요", description: "핵심 키워드는 제목 앞쪽에 배치하세요. 유튜브 검색 알고리즘이 앞쪽 단어를 더 중요하게 봐요." },
+          { title: "점수가 70점 이상 나올 때까지 다듬으세요", description: "숫자 넣기, 감정 단어 추가, 30~60자 맞추기 등 제안을 따라하면 점수가 올라가요." },
+          { title: "제목 후보를 3~5개 만들어서 비교하세요", description: "하나만 쓰지 말고 여러 버전을 입력해보세요. 점수가 가장 높은 걸 선택하면 돼요." },
+          { title: "트렌딩 제목과 내 제목을 비교하세요", description: "하단의 트렌딩 제목 패턴을 참고해서 비슷한 구조로 만들어보세요." },
+        ]}
+        tip="업로드 후 48시간 내 CTR이 낮으면 제목을 바꿔보세요. 유튜브는 제목 변경 후 다시 노출 테스트를 해줘요."
+      />
 
       {/* Input */}
       <div className="rounded-xl border border-border bg-card p-6">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Search, Eye, ThumbsUp, MessageCircle, Clock, BarChart3, TrendingUp, Zap, Hash } from "lucide-react";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 interface SearchResult {
   id: string;
@@ -157,6 +158,16 @@ export default function KeywordsPage() {
           * 검색 API는 쿼터 소비가 큽니다 (100 유닛/회). 하루 약 100회 검색 가능
         </p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "내 채널 주제와 관련된 키워드를 검색하세요", description: "예: 요리 채널이면 '자취 요리', '간단 레시피', '편의점 요리' 등을 검색해보세요." },
+          { title: "경쟁도 '낮음~보통' + 평균 조회수 '높음' 조합을 찾으세요", description: "이게 블루오션이에요. 수요는 있는데 경쟁이 적은 키워드가 성장에 유리해요." },
+          { title: "관련 키워드를 클릭해서 틈새를 더 파보세요", description: "'다이어트'가 경쟁 과열이면 '직장인 다이어트 도시락' 같은 롱테일로 좁히세요." },
+          { title: "상위 영상의 제목/설명/태그를 참고하세요", description: "1~3위 영상의 제목 구조, 키워드 배치를 보고 내 영상에 적용하세요." },
+        ]}
+        tip="같은 키워드를 '관련도순'과 '조회수순'으로 둘 다 검색해보세요. 관련도순은 알고리즘이 밀어주는 영상, 조회수순은 실제 수요를 보여줘요."
+      />
 
       {/* Search Form */}
       <form onSubmit={handleSearch} className="mb-8">

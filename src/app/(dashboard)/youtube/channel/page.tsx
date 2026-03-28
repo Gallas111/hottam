@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BarChart3, Search, Users, Eye, Video, ExternalLink, Trophy } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
+import { UsageGuide } from "@/components/ui/usage-guide";
 
 interface ChannelData {
   id: string;
@@ -74,6 +75,16 @@ export default function ChannelAnalysisPage() {
           유튜브 채널 ID 또는 @핸들을 입력하세요
         </p>
       </div>
+
+      <UsageGuide
+        steps={[
+          { title: "먼저 내 채널을 분석하세요", description: "내 @핸들을 입력해서 구독자 대비 조회수, 영상당 평균 성과를 확인하세요." },
+          { title: "같은 주제의 경쟁 채널을 분석하세요", description: "나보다 구독자가 2~5배 많은 채널을 찾아서 어떤 영상이 잘 되는지 보세요." },
+          { title: "경쟁 채널의 인기 영상 패턴을 파악하세요", description: "최근 영상 중 조회수가 유독 높은 영상의 주제, 제목, 썸네일을 분석하세요." },
+          { title: "채널 비교 기능으로 나란히 비교하세요", description: "아래 '채널 비교하러 가기' 버튼으로 내 채널 vs 경쟁 채널을 직접 비교할 수 있어요." },
+        ]}
+        tip="구독자 수보다 '영상당 평균 조회수'가 더 중요해요. 구독자 대비 조회수가 높으면 알고리즘이 밀어주는 채널이에요."
+      />
 
       <div className="mb-6">
         <Link

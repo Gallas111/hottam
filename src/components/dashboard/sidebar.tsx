@@ -27,6 +27,7 @@ const navItems = [
       { label: "키워드 리서치", href: "/youtube/keywords" },
       { label: "영상 분석", href: "/youtube/video" },
       { label: "제목 최적화", href: "/youtube/title-optimizer" },
+      { label: "자동 생성", href: "/youtube/generator" },
       { label: "인사이트", href: "/youtube/insights" },
     ],
   },

@@ -1,17 +1,32 @@
 import { NextRequest } from "next/server";
 import { searchVideos, getVideos } from "@/lib/api/youtube";
 import { getCached, setCache, TTL } from "@/lib/cache";
+import { rateLimit } from "@/lib/rate-limit";
+
+const ALLOWED_ORDERS = ["relevance", "viewCount", "date"] as const;
 
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q");
-  const order = (request.nextUrl.searchParams.get("order") ?? "relevance") as
-    | "relevance"
-    | "viewCount"
-    | "date";
+  // Rate limit: 30 searches per minute per IP
+  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const { ok } = rateLimit(`search_${ip}`, 30, 60_000);
+  if (!ok) {
+    return Response.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도하세요." }, { status: 429 });
+  }
 
-  if (!q) {
+  const q = request.nextUrl.searchParams.get("q");
+  const orderParam = request.nextUrl.searchParams.get("order") ?? "relevance";
+
+  // Input validation
+  if (!q || q.trim().length === 0) {
     return Response.json({ error: "q 파라미터가 필요합니다" }, { status: 400 });
   }
+  if (q.length > 200) {
+    return Response.json({ error: "검색어가 너무 깁니다" }, { status: 400 });
+  }
+
+  const order = ALLOWED_ORDERS.includes(orderParam as typeof ALLOWED_ORDERS[number])
+    ? (orderParam as typeof ALLOWED_ORDERS[number])
+    : "relevance";
 
   // Check cache
   const cacheKey = `search_${q.toLowerCase()}_${order}`;
@@ -62,8 +77,7 @@ export async function GET(request: NextRequest) {
     // Cache for 2 hours
     setCache(cacheKey, result, TTL.SEARCH);
     return Response.json(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "API 오류";
-    return Response.json({ error: message }, { status: 500 });
+  } catch {
+    return Response.json({ error: "검색 중 오류가 발생했습니다" }, { status: 500 });
   }
 }

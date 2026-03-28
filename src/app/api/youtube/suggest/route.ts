@@ -1,10 +1,17 @@
 import { NextRequest } from "next/server";
 import { getCached, setCache, TTL } from "@/lib/cache";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") || "unknown";
+  const { ok } = rateLimit(`suggest_${ip}`, 60, 60_000);
+  if (!ok) {
+    return Response.json({ suggestions: [] });
+  }
+
   const q = request.nextUrl.searchParams.get("q");
-  if (!q) {
-    return Response.json({ error: "q 파라미터가 필요합니다" }, { status: 400 });
+  if (!q || q.length > 100) {
+    return Response.json({ suggestions: [] });
   }
 
   const cacheKey = `suggest_${q.toLowerCase()}`;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Eye, ThumbsUp, MessageCircle, Clock } from "lucide-react";
+import { Search, Eye, ThumbsUp, MessageCircle, Clock, BarChart3, TrendingUp, Zap, Hash } from "lucide-react";
 
 interface SearchResult {
   id: string;
@@ -15,15 +15,25 @@ interface SearchResult {
   commentCount: string;
 }
 
+interface KeywordStats {
+  avgViews: number;
+  avgLikes: number;
+  avgComments: number;
+  avgEngagement: number;
+  recentUploads: number;
+  competitionLevel: string;
+  competitionColor: string;
+}
+
 export default function KeywordsPage() {
   const [query, setQuery] = useState("");
-  const [order, setOrder] = useState<"relevance" | "viewCount" | "date">(
-    "relevance"
-  );
+  const [order, setOrder] = useState<"relevance" | "viewCount" | "date">("relevance");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState("");
   const [totalResults, setTotalResults] = useState(0);
+  const [stats, setStats] = useState<KeywordStats | null>(null);
+  const [relatedKeywords, setRelatedKeywords] = useState<string[]>([]);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -40,6 +50,64 @@ export default function KeywordsPage() {
       if (!res.ok) throw new Error(data.error || "검색 실패");
       setResults(data.videos);
       setTotalResults(data.totalResults);
+
+      // Calculate keyword stats from results
+      if (data.videos.length > 0) {
+        const videos = data.videos as SearchResult[];
+        const views = videos.map((v) => parseInt(v.viewCount) || 0);
+        const likes = videos.map((v) => parseInt(v.likeCount) || 0);
+        const comments = videos.map((v) => parseInt(v.commentCount) || 0);
+
+        const avgViews = Math.round(views.reduce((a, b) => a + b, 0) / views.length);
+        const avgLikes = Math.round(likes.reduce((a, b) => a + b, 0) / likes.length);
+        const avgComments = Math.round(comments.reduce((a, b) => a + b, 0) / comments.length);
+        const avgEngagement = avgViews > 0 ? ((avgLikes + avgComments) / avgViews) * 100 : 0;
+
+        // Count videos uploaded in last 30 days
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const recentUploads = videos.filter(
+          (v) => new Date(v.publishedAt).getTime() > thirtyDaysAgo
+        ).length;
+
+        // Competition level based on avg views and recent uploads
+        let competitionLevel = "낮음";
+        let competitionColor = "text-green-500";
+        if (avgViews > 100000 && recentUploads >= 5) {
+          competitionLevel = "매우 높음";
+          competitionColor = "text-red-500";
+        } else if (avgViews > 50000 && recentUploads >= 3) {
+          competitionLevel = "높음";
+          competitionColor = "text-orange-500";
+        } else if (avgViews > 10000) {
+          competitionLevel = "보통";
+          competitionColor = "text-yellow-500";
+        }
+
+        setStats({ avgViews, avgLikes, avgComments, avgEngagement, recentUploads, competitionLevel, competitionColor });
+
+        // Extract related keywords from titles
+        const words = videos
+          .flatMap((v) =>
+            v.title
+              .replace(/[^가-힣a-zA-Z0-9\s]/g, " ")
+              .split(/\s+/)
+              .filter((w) => w.length >= 2 && w.toLowerCase() !== query.toLowerCase())
+          );
+        const wordCount = new Map<string, number>();
+        words.forEach((w) => {
+          const key = w.toLowerCase();
+          wordCount.set(key, (wordCount.get(key) || 0) + 1);
+        });
+        const sorted = [...wordCount.entries()]
+          .filter(([, count]) => count >= 2)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 12)
+          .map(([word]) => word);
+        setRelatedKeywords(sorted);
+      } else {
+        setStats(null);
+        setRelatedKeywords([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "오류가 발생했습니다");
     } finally {
@@ -67,6 +135,14 @@ export default function KeywordsPage() {
     return `${Math.floor(days / 365)}년 전`;
   }
 
+  function searchRelated(keyword: string) {
+    setQuery(keyword);
+    const form = document.querySelector("form");
+    if (form) {
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    }
+  }
+
   return (
     <div>
       <div className="mb-8">
@@ -75,7 +151,7 @@ export default function KeywordsPage() {
           키워드 리서치
         </h1>
         <p className="mt-1 text-muted-foreground">
-          키워드로 인기 영상을 검색하고 트렌드를 분석하세요
+          키워드로 인기 영상을 검색하고 경쟁도를 분석하세요
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           * 검색 API는 쿼터 소비가 큽니다 (100 유닛/회). 하루 약 100회 검색 가능
@@ -97,9 +173,7 @@ export default function KeywordsPage() {
           </div>
           <select
             value={order}
-            onChange={(e) =>
-              setOrder(e.target.value as "relevance" | "viewCount" | "date")
-            }
+            onChange={(e) => setOrder(e.target.value as "relevance" | "viewCount" | "date")}
             className="rounded-lg border border-border bg-card px-3 py-3 text-sm focus:border-primary focus:outline-none"
           >
             <option value="relevance">관련도순</option>
@@ -122,6 +196,67 @@ export default function KeywordsPage() {
         </div>
       )}
 
+      {/* Keyword Stats Cards */}
+      {stats && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <BarChart3 className="h-4 w-4" />
+              경쟁도
+            </div>
+            <p className={`mt-1 text-xl font-bold ${stats.competitionColor}`}>
+              {stats.competitionLevel}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Eye className="h-4 w-4" />
+              평균 조회수
+            </div>
+            <p className="mt-1 text-xl font-bold">{formatNum(stats.avgViews)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <TrendingUp className="h-4 w-4" />
+              평균 참여율
+            </div>
+            <p className="mt-1 text-xl font-bold">{stats.avgEngagement.toFixed(2)}%</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Zap className="h-4 w-4" />
+              최근 30일 업로드
+            </div>
+            <p className="mt-1 text-xl font-bold">{stats.recentUploads}개</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Hash className="h-4 w-4" />
+              총 결과
+            </div>
+            <p className="mt-1 text-xl font-bold">{formatNum(totalResults)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Related Keywords */}
+      {relatedKeywords.length > 0 && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <h3 className="mb-3 text-sm font-semibold text-muted-foreground">관련 키워드</h3>
+          <div className="flex flex-wrap gap-2">
+            {relatedKeywords.map((kw) => (
+              <button
+                key={kw}
+                onClick={() => searchRelated(kw)}
+                className="rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium transition-colors hover:border-primary hover:text-primary"
+              >
+                {kw}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {totalResults > 0 && (
         <p className="mb-4 text-sm text-muted-foreground">
           약 {formatNum(totalResults)}개의 결과
@@ -130,7 +265,7 @@ export default function KeywordsPage() {
 
       {/* Results */}
       <div className="space-y-4">
-        {results.map((video) => (
+        {results.map((video, idx) => (
           <a
             key={video.id}
             href={`https://www.youtube.com/watch?v=${video.id}`}
@@ -138,12 +273,17 @@ export default function KeywordsPage() {
             rel="noopener noreferrer"
             className="flex gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:shadow-md"
           >
-            <img
-              src={video.thumbnailUrl}
-              alt={video.title}
-              loading="lazy"
-              className="h-24 w-40 flex-shrink-0 rounded-lg object-cover"
-            />
+            <div className="relative flex-shrink-0">
+              <img
+                src={video.thumbnailUrl}
+                alt={video.title}
+                loading="lazy"
+                className="h-24 w-40 rounded-lg object-cover"
+              />
+              <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-xs font-bold text-white">
+                #{idx + 1}
+              </span>
+            </div>
             <div className="min-w-0 flex-1">
               <h3 className="line-clamp-2 text-sm font-semibold sm:text-base">
                 {video.title}
@@ -181,7 +321,7 @@ export default function KeywordsPage() {
         <div className="rounded-xl border border-border bg-card p-12 text-center">
           <Search className="mx-auto h-12 w-12 text-muted-foreground/30" />
           <p className="mt-4 text-muted-foreground">
-            키워드를 입력하면 관련 영상의 성과를 분석합니다
+            키워드를 입력하면 경쟁도와 관련 키워드를 분석합니다
           </p>
         </div>
       )}

@@ -2,15 +2,8 @@
 
 import { useState } from "react";
 import {
-  BarChart3,
-  Search,
-  Users,
-  Eye,
-  Video,
-  Trophy,
-  Plus,
-  X,
-  Loader2,
+  BarChart3, Search, Users, Eye, Video, Trophy, Plus, X, Loader2,
+  ThumbsUp, MessageCircle, TrendingUp, Calendar,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -35,6 +28,8 @@ interface ChannelData {
   }>;
 }
 
+const COLORS = ["#ef4444", "#3b82f6", "#22c55e"];
+
 function formatNum(n: string | number) {
   const num = typeof n === "string" ? parseInt(n) : n;
   if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}억`;
@@ -44,39 +39,62 @@ function formatNum(n: string | number) {
 }
 
 function toNum(n: string | number) {
-  return typeof n === "string" ? parseInt(n) : n;
+  return typeof n === "string" ? parseInt(n) || 0 : n;
 }
 
-type MetricKey = "subscribers" | "views" | "videos" | "avgViews" | "recentViews";
+function calcAvgEngagement(ch: ChannelData): number {
+  if (!ch.videos || ch.videos.length === 0) return 0;
+  const total = ch.videos.reduce((sum, v) => {
+    const views = toNum(v.viewCount);
+    const likes = toNum(v.likeCount);
+    const comments = toNum(v.commentCount);
+    return sum + (views > 0 ? ((likes + comments) / views) * 100 : 0);
+  }, 0);
+  return total / ch.videos.length;
+}
+
+function calcUploadFrequency(ch: ChannelData): string {
+  if (!ch.videos || ch.videos.length < 2) return "-";
+  const dates = ch.videos.map((v) => new Date(v.publishedAt).getTime()).sort((a, b) => b - a);
+  const diffDays = (dates[0] - dates[dates.length - 1]) / (1000 * 60 * 60 * 24);
+  const avgDays = diffDays / (dates.length - 1);
+  if (avgDays < 1) return "매일";
+  if (avgDays < 3) return `${avgDays.toFixed(1)}일마다`;
+  if (avgDays < 8) return `주 ${Math.round(7 / avgDays)}회`;
+  if (avgDays < 32) return `월 ${Math.round(30 / avgDays)}회`;
+  return `${Math.round(avgDays)}일마다`;
+}
+
+function calcAvgViews(ch: ChannelData): number {
+  if (!ch.videos || ch.videos.length === 0) return 0;
+  const total = ch.videos.reduce((sum, v) => sum + toNum(v.viewCount), 0);
+  return Math.round(total / ch.videos.length);
+}
+
+type MetricKey = "subscribers" | "views" | "videos" | "avgViews" | "avgEngagement" | "uploadFreq";
+
+function getMetricNumValue(ch: ChannelData, key: MetricKey): number {
+  switch (key) {
+    case "subscribers": return toNum(ch.subscriberCount);
+    case "views": return toNum(ch.viewCount);
+    case "videos": return toNum(ch.videoCount);
+    case "avgViews": return calcAvgViews(ch);
+    case "avgEngagement": return calcAvgEngagement(ch);
+    case "uploadFreq": {
+      if (!ch.videos || ch.videos.length < 2) return 0;
+      const dates = ch.videos.map((v) => new Date(v.publishedAt).getTime()).sort((a, b) => b - a);
+      const diffDays = (dates[0] - dates[dates.length - 1]) / (1000 * 60 * 60 * 24);
+      return (ch.videos.length - 1) / (diffDays || 1) * 30; // uploads per month
+    }
+  }
+}
 
 function getWinnerIndex(channels: ChannelData[], metric: MetricKey): number {
   let best = -1;
   let bestVal = -1;
   channels.forEach((ch, i) => {
-    let val = 0;
-    switch (metric) {
-      case "subscribers":
-        val = toNum(ch.subscriberCount);
-        break;
-      case "views":
-        val = toNum(ch.viewCount);
-        break;
-      case "videos":
-        val = toNum(ch.videoCount);
-        break;
-      case "avgViews": {
-        const vc = toNum(ch.videoCount);
-        val = vc > 0 ? toNum(ch.viewCount) / vc : 0;
-        break;
-      }
-      case "recentViews":
-        val = ch.videos?.[0] ? toNum(ch.videos[0].viewCount) : 0;
-        break;
-    }
-    if (val > bestVal) {
-      bestVal = val;
-      best = i;
-    }
+    const val = getMetricNumValue(ch, metric);
+    if (val > bestVal) { bestVal = val; best = i; }
   });
   return best;
 }
@@ -90,26 +108,13 @@ export default function ChannelComparePage() {
   function updateInput(idx: number, value: string) {
     setInputs((prev) => prev.map((v, i) => (i === idx ? value : v)));
   }
-
-  function addInput() {
-    if (inputs.length < 3) {
-      setInputs((prev) => [...prev, ""]);
-    }
-  }
-
-  function removeInput(idx: number) {
-    if (inputs.length > 2) {
-      setInputs((prev) => prev.filter((_, i) => i !== idx));
-    }
-  }
+  function addInput() { if (inputs.length < 3) setInputs((prev) => [...prev, ""]); }
+  function removeInput(idx: number) { if (inputs.length > 2) setInputs((prev) => prev.filter((_, i) => i !== idx)); }
 
   async function handleCompare(e: React.FormEvent) {
     e.preventDefault();
     const queries = inputs.filter((q) => q.trim());
-    if (queries.length < 2) {
-      setError("최소 2개의 채널을 입력해주세요");
-      return;
-    }
+    if (queries.length < 2) { setError("최소 2개의 채널을 입력해주세요"); return; }
 
     setLoading(true);
     setError("");
@@ -118,14 +123,9 @@ export default function ChannelComparePage() {
     try {
       const results = await Promise.all(
         queries.map(async (q) => {
-          const res = await fetch(
-            `/api/youtube/channel?q=${encodeURIComponent(q.trim())}`
-          );
+          const res = await fetch(`/api/youtube/channel?q=${encodeURIComponent(q.trim())}`);
           const data = await res.json();
-          if (!res.ok)
-            throw new Error(
-              data.error || `"${q}" 채널을 찾을 수 없습니다`
-            );
+          if (!res.ok) throw new Error(data.error || `"${q}" 채널을 찾을 수 없습니다`);
           return data as ChannelData;
         })
       );
@@ -137,30 +137,14 @@ export default function ChannelComparePage() {
     }
   }
 
-  const metrics: { key: MetricKey; label: string; icon: typeof Users }[] = [
-    { key: "subscribers", label: "구독자 수", icon: Users },
-    { key: "views", label: "총 조회수", icon: Eye },
-    { key: "videos", label: "영상 수", icon: Video },
-    { key: "avgViews", label: "평균 조회수", icon: BarChart3 },
-    { key: "recentViews", label: "최근 영상 조회수", icon: Eye },
+  const metrics: { key: MetricKey; label: string; icon: typeof Users; format: (ch: ChannelData) => string }[] = [
+    { key: "subscribers", label: "구독자 수", icon: Users, format: (ch) => formatNum(ch.subscriberCount) },
+    { key: "views", label: "총 조회수", icon: Eye, format: (ch) => formatNum(ch.viewCount) },
+    { key: "videos", label: "영상 수", icon: Video, format: (ch) => formatNum(ch.videoCount) },
+    { key: "avgViews", label: "최근 영상 평균 조회수", icon: BarChart3, format: (ch) => formatNum(calcAvgViews(ch)) },
+    { key: "avgEngagement", label: "평균 참여율", icon: TrendingUp, format: (ch) => `${calcAvgEngagement(ch).toFixed(2)}%` },
+    { key: "uploadFreq", label: "업로드 빈도", icon: Calendar, format: (ch) => calcUploadFrequency(ch) },
   ];
-
-  function getMetricValue(ch: ChannelData, key: MetricKey): string {
-    switch (key) {
-      case "subscribers":
-        return formatNum(ch.subscriberCount);
-      case "views":
-        return formatNum(ch.viewCount);
-      case "videos":
-        return formatNum(ch.videoCount);
-      case "avgViews": {
-        const vc = toNum(ch.videoCount);
-        return vc > 0 ? formatNum(Math.round(toNum(ch.viewCount) / vc)) : "0";
-      }
-      case "recentViews":
-        return ch.videos?.[0] ? formatNum(ch.videos[0].viewCount) : "-";
-    }
-  }
 
   return (
     <div>
@@ -169,9 +153,7 @@ export default function ChannelComparePage() {
           <Trophy className="h-7 w-7 text-yellow-500" />
           채널 비교
         </h1>
-        <p className="mt-1 text-muted-foreground">
-          유튜브 채널 2~3개를 나란히 비교 분석하세요
-        </p>
+        <p className="mt-1 text-muted-foreground">유튜브 채널 2~3개를 나란히 비교 분석하세요</p>
       </div>
 
       {/* Input Form */}
@@ -179,6 +161,9 @@ export default function ChannelComparePage() {
         <div className="space-y-3">
           {inputs.map((input, idx) => (
             <div key={idx} className="flex gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: COLORS[idx] }}>
+                {idx + 1}
+              </div>
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -190,34 +175,20 @@ export default function ChannelComparePage() {
                 />
               </div>
               {inputs.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => removeInput(idx)}
-                  className="rounded-lg border border-border px-3 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                >
+                <button type="button" onClick={() => removeInput(idx)} className="rounded-lg border border-border px-3 text-muted-foreground hover:bg-secondary hover:text-foreground">
                   <X className="h-4 w-4" />
                 </button>
               )}
             </div>
           ))}
         </div>
-
         <div className="mt-4 flex gap-3">
           {inputs.length < 3 && (
-            <button
-              type="button"
-              onClick={addInput}
-              className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary"
-            >
-              <Plus className="h-4 w-4" />
-              채널 추가
+            <button type="button" onClick={addInput} className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary">
+              <Plus className="h-4 w-4" />채널 추가
             </button>
           )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-red-500 px-6 py-3 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading} className="flex items-center gap-2 rounded-lg bg-red-500 px-6 py-3 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? "비교 중..." : "비교하기"}
           </button>
@@ -225,134 +196,113 @@ export default function ChannelComparePage() {
       </form>
 
       {error && (
-        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
-        </div>
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
       )}
 
       {/* Comparison Results */}
       {channels.length >= 2 && (
         <div>
           {/* Channel Headers */}
-          <div
-            className="mb-6 grid gap-4"
-            style={{
-              gridTemplateColumns: `repeat(${channels.length}, minmax(0, 1fr))`,
-            }}
-          >
+          <div className="mb-6 grid gap-4" style={{ gridTemplateColumns: `repeat(${channels.length}, minmax(0, 1fr))` }}>
             {channels.map((ch, i) => (
               <Card key={ch.id} className="text-center">
-                <img
-                  src={ch.thumbnailUrl}
-                  alt={ch.title}
-                  className="mx-auto h-20 w-20 rounded-full"
-                />
+                <div className="mx-auto mb-2 h-1.5 w-20 rounded-full" style={{ backgroundColor: COLORS[i] }} />
+                <img src={ch.thumbnailUrl} alt={ch.title} className="mx-auto h-20 w-20 rounded-full" />
                 <h2 className="mt-3 text-lg font-bold">{ch.title}</h2>
-                {ch.country && (
-                  <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs">
-                    {ch.country}
-                  </span>
-                )}
-                <a
-                  href={`https://www.youtube.com/channel/${ch.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 block text-xs text-muted-foreground hover:text-primary"
-                >
+                {ch.country && <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs">{ch.country}</span>}
+                <a href={`https://www.youtube.com/channel/${ch.id}`} target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs text-muted-foreground hover:text-primary">
                   YouTube에서 보기
                 </a>
               </Card>
             ))}
           </div>
 
-          {/* Metrics Comparison */}
-          <Card>
-            <CardHeader>
-              <CardTitle>지표 비교</CardTitle>
-            </CardHeader>
+          {/* Metrics Comparison with Visual Bars */}
+          <Card className="mb-6">
+            <CardHeader><CardTitle>지표 비교</CardTitle></CardHeader>
             <div className="space-y-1">
               {metrics.map((metric) => {
                 const winnerIdx = getWinnerIndex(channels, metric.key);
+                const maxVal = Math.max(...channels.map((ch) => getMetricNumValue(ch, metric.key)), 1);
                 const Icon = metric.icon;
                 return (
-                  <div
-                    key={metric.key}
-                    className="grid items-center gap-4 rounded-lg px-4 py-3 hover:bg-secondary/50"
-                    style={{
-                      gridTemplateColumns: `180px repeat(${channels.length}, minmax(0, 1fr))`,
-                    }}
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <Icon className="h-4 w-4" />
-                      {metric.label}
+                  <div key={metric.key} className="rounded-lg px-4 py-3 hover:bg-secondary/50">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Icon className="h-4 w-4" />{metric.label}
                     </div>
-                    {channels.map((ch, i) => (
-                      <div
-                        key={ch.id}
-                        className={`text-center text-lg font-bold ${
-                          i === winnerIdx
-                            ? "text-green-500"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {getMetricValue(ch, metric.key)}
-                        {i === winnerIdx && (
-                          <Trophy className="ml-1 inline h-4 w-4 text-yellow-500" />
-                        )}
-                      </div>
-                    ))}
+                    <div className="space-y-2">
+                      {channels.map((ch, i) => {
+                        const val = getMetricNumValue(ch, metric.key);
+                        const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                        return (
+                          <div key={ch.id} className="flex items-center gap-3">
+                            <div className="w-16 text-right text-xs font-medium text-muted-foreground">{ch.title.slice(0, 6)}</div>
+                            <div className="flex-1">
+                              <div className="h-6 w-full overflow-hidden rounded-full bg-secondary">
+                                <div
+                                  className="flex h-full items-center justify-end rounded-full px-2 text-xs font-bold text-white transition-all"
+                                  style={{ width: `${Math.max(pct, 8)}%`, backgroundColor: COLORS[i] }}
+                                >
+                                  {metric.format(ch)}
+                                </div>
+                              </div>
+                            </div>
+                            {i === winnerIdx && <Trophy className="h-4 w-4 flex-shrink-0 text-yellow-500" />}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </Card>
 
-          {/* Recent Videos */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>최근 영상</CardTitle>
-            </CardHeader>
-            <div
-              className="grid gap-4"
-              style={{
-                gridTemplateColumns: `repeat(${channels.length}, minmax(0, 1fr))`,
-              }}
-            >
-              {channels.map((ch) => {
-                const video = ch.videos?.[0];
-                if (!video) {
-                  return (
-                    <div
-                      key={ch.id}
-                      className="rounded-lg border border-border p-4 text-center text-sm text-muted-foreground"
-                    >
-                      최근 영상 없음
-                    </div>
-                  );
-                }
-                return (
-                  <a
-                    key={ch.id}
-                    href={`https://www.youtube.com/watch?v=${video.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg border border-border p-3 transition-colors hover:bg-secondary"
-                  >
-                    <img
-                      src={video.thumbnailUrl}
-                      alt={video.title}
-                      className="w-full rounded-md object-cover"
-                    />
-                    <p className="mt-2 line-clamp-2 text-sm font-medium">
-                      {video.title}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span>조회수 {formatNum(video.viewCount)}</span>
-                      <span>좋아요 {formatNum(video.likeCount)}</span>
-                    </div>
-                  </a>
-                );
-              })}
+          {/* Overall Winner */}
+          {(() => {
+            const wins = channels.map((_, i) =>
+              metrics.filter((m) => getWinnerIndex(channels, m.key) === i).length
+            );
+            const overallWinner = wins.indexOf(Math.max(...wins));
+            return (
+              <Card className="mb-6 border-yellow-500/50 bg-yellow-50 dark:bg-yellow-500/10">
+                <div className="flex items-center justify-center gap-3 py-2">
+                  <Trophy className="h-6 w-6 text-yellow-500" />
+                  <span className="text-lg font-bold">{channels[overallWinner].title}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {wins[overallWinner]}/{metrics.length} 항목 우승
+                  </span>
+                </div>
+              </Card>
+            );
+          })()}
+
+          {/* Recent Videos (Top 3 per channel) */}
+          <Card>
+            <CardHeader><CardTitle>최근 영상 비교</CardTitle></CardHeader>
+            <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${channels.length}, minmax(0, 1fr))` }}>
+              {channels.map((ch, chIdx) => (
+                <div key={ch.id} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[chIdx] }} />
+                    <span className="text-sm font-semibold">{ch.title}</span>
+                  </div>
+                  {(ch.videos || []).slice(0, 3).map((video) => (
+                    <a key={video.id} href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="block rounded-lg border border-border p-2 transition-colors hover:bg-secondary">
+                      <img src={video.thumbnailUrl} alt={video.title} className="w-full rounded-md object-cover" />
+                      <p className="mt-2 line-clamp-2 text-xs font-medium">{video.title}</p>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatNum(video.viewCount)}</span>
+                        <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" />{formatNum(video.likeCount)}</span>
+                        <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{formatNum(video.commentCount)}</span>
+                      </div>
+                    </a>
+                  ))}
+                  {(!ch.videos || ch.videos.length === 0) && (
+                    <div className="rounded-lg border border-border p-4 text-center text-sm text-muted-foreground">최근 영상 없음</div>
+                  )}
+                </div>
+              ))}
             </div>
           </Card>
         </div>
@@ -362,12 +312,8 @@ export default function ChannelComparePage() {
       {channels.length === 0 && !error && !loading && (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
           <Trophy className="mx-auto h-12 w-12 text-muted-foreground/30" />
-          <p className="mt-4 text-muted-foreground">
-            채널 핸들 또는 ID를 입력하고 비교하기를 눌러주세요
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            예: @channelA vs @channelB
-          </p>
+          <p className="mt-4 text-muted-foreground">채널 핸들 또는 ID를 입력하고 비교하기를 눌러주세요</p>
+          <p className="mt-1 text-sm text-muted-foreground">예: @channelA vs @channelB</p>
         </div>
       )}
     </div>

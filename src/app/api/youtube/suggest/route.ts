@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const text = await res.text();
 
     // Parse JSONP response: window.google.ac.h([...])
-    const match = text.match(/\[.*\]/s);
+    const match = text.match(/\[[\s\S]*\]/);
     if (!match) {
       return Response.json({ suggestions: [] });
     }

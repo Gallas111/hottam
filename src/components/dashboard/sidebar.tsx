@@ -23,6 +23,9 @@ const navItems = [
     color: "text-red-500",
     children: [
       { label: "트렌딩", href: "/youtube/trending" },
+      { label: "🔥 아웃라이어", href: "/youtube/outliers" },
+      { label: "🚀 라이징 채널", href: "/youtube/rising" },
+      { label: "✨ 재창작 변환기", href: "/youtube/remake" },
       { label: "채널 분석", href: "/youtube/channel" },
       { label: "키워드 리서치", href: "/youtube/keywords" },
       { label: "영상 분석", href: "/youtube/video" },

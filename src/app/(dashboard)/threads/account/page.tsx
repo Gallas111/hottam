@@ -31,6 +31,17 @@ function metricIcon(name: string) {
   return <BarChart3 className="h-5 w-5" />;
 }
 
+// Meta API 의 title 필드는 locale 추측 실패 시 중국어로 옴.
+// 안정적으로 한국어로 표시하기 위해 metric name 기준 하드코딩.
+const METRIC_LABELS_KO: Record<string, string> = {
+  views: "조회수",
+  likes: "좋아요",
+  replies: "답글",
+  reposts: "리포스트",
+  quotes: "인용",
+  followers_count: "팔로워",
+};
+
 export default function ThreadsAccountPage() {
   const [profile, setProfile] = useState<ThreadsUser | null>(null);
   const [insights, setInsights] = useState<ThreadsInsightsResponse | null>(null);
@@ -56,12 +67,15 @@ export default function ThreadsAccountPage() {
         if (i.status === "fulfilled") setInsights(i.value);
         if (t.status === "fulfilled") setPosts(t.value.data);
         if (m.status === "fulfilled") setMentions(m.value.data);
-        const firstReject = [p, i, t, m].find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
-        if (firstReject) {
-          if (firstReject.reason instanceof ThreadsAuthError) {
+        // 멘션은 threads_manage_mentions 권한 옵션. 권한 없거나 빈 결과여도 silent 처리.
+        // 인증/기타 에러는 profile / insights / posts 우선 검사.
+        const criticalRejects = [p, i, t].filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+        if (criticalRejects.length > 0) {
+          const first = criticalRejects[0];
+          if (first.reason instanceof ThreadsAuthError) {
             setAuthMissing(true);
           } else {
-            setError((firstReject.reason as Error).message);
+            setError((first.reason as Error).message);
           }
         }
       } finally {
@@ -138,7 +152,7 @@ export default function ThreadsAccountPage() {
                 <div key={m.name} className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     {metricIcon(m.name)}
-                    <span className="text-xs">{m.title || m.name}</span>
+                    <span className="text-xs">{METRIC_LABELS_KO[m.name] || m.title || m.name}</span>
                   </div>
                   <div className="mt-2 text-2xl font-semibold">{formatNum(total)}</div>
                 </div>

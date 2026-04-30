@@ -97,6 +97,19 @@ export interface ThreadsPost {
   has_replies?: boolean;
   alt_text?: string;
   _keyword?: string;
+  // enrich 시 채워지는 필드
+  _metrics?: PostMetrics;
+}
+
+export interface PostMetrics {
+  id: string;
+  like_count: number;
+  reply_count: number;
+  repost_count: number;
+  quote_count: number;
+  view_count: number;
+  fetched_at: number;
+  source: "scraped" | "cached" | "failed";
 }
 
 export interface ThreadsListResponse<T> {
@@ -188,6 +201,30 @@ export async function getThreadInsights(threadId: string) {
   return call<ThreadsInsightsResponse>(
     `/api/threads/thread/${encodeURIComponent(threadId)}/insights`,
   );
+}
+
+// engagement metric 추출 (BYOT 불필요 — 공개 페이지 스크래핑)
+export async function enrichPosts(
+  posts: { id: string; permalink: string }[]
+): Promise<{ metrics: PostMetrics[]; summary: { total: number; scraped: number; cached: number; failed: number }; fetchedAt: string }> {
+  const url = API_BASE + "/api/threads/enrich";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ posts }),
+  });
+  const text = await res.text();
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid JSON response (${res.status})`);
+  }
+  if (!res.ok) {
+    const msg = (json as { error?: string })?.error || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return json as { metrics: PostMetrics[]; summary: { total: number; scraped: number; cached: number; failed: number }; fetchedAt: string };
 }
 
 // 토큰 검증 (간단한 ping)

@@ -8,6 +8,7 @@ import {
   searchThreads,
   getTrending,
   enrichPosts,
+  getTrendingWithFallback,
   type ThreadsPost,
   type PostMetrics,
   ThreadsAuthError,
@@ -68,25 +69,48 @@ export default function ThreadsTrendingPage() {
   const [enrichError, setEnrichError] = useState<string | null>(null);
   const [bookmarkTick, setBookmarkTick] = useState(0);  // 리렌더 트리거
 
+  // GitHub 자동 수집 모드 (0 한도, 6h 갱신). preset 모드에서만 의미.
+  const [useCollected, setUseCollected] = useState(true);
+  const [dataSource, setDataSource] = useState<"github-collected" | "live-search" | null>(null);
+  const [staleMinutes, setStaleMinutes] = useState<number | null>(null);
+
   async function handleSearch() {
     setLoading(true);
     setError(null);
     setAuthMissing(false);
     setEnrichSummary(null);
     setEnrichError(null);
+    setDataSource(null);
+    setStaleMinutes(null);
     try {
-      let data: { items?: ThreadsPost[]; data?: ThreadsPost[]; keywords?: string[]; preset?: string; fetchedAt?: string };
-      if (mode === "preset") {
-        data = await getTrending({ preset, type, perKeyword });
+      if (mode === "preset" && useCollected) {
+        // ⭐ GitHub 자동 수집 우선 (0 한도). 비어있으면 라이브 검색 자동 fallback.
+        const r = await getTrendingWithFallback({ preset, type, perKeyword, preferCollected: true });
+        setItems(r.items);
+        setMeta({ preset: r.preset, fetchedAt: r.fetchedAt });
+        setDataSource(r.source);
+        setStaleMinutes(r.staleMinutes ?? null);
+        // GitHub 수집 데이터에 _metrics 가 이미 들어있으면 자동 정렬
+        if (r.source === "github-collected" && r.items.some((p) => p._metrics)) {
+          setSortMode("likes");
+        }
+      } else if (mode === "preset") {
+        const data = await getTrending({ preset, type, perKeyword });
+        setItems(data.items || []);
+        setMeta({ keywords: data.keywords, preset: data.preset, fetchedAt: data.fetchedAt });
+        setDataSource("live-search");
       } else if (mode === "keyword") {
         const r = await searchThreads(keyword, type, 50);
-        data = { data: r.data };
+        setItems(r.data);
+        setMeta({});
+        setDataSource("live-search");
       } else {
         const q = hashtag.startsWith("#") ? hashtag : `#${hashtag}`;
-        data = { data: (await searchThreads(q, type, 50)).data };
+        const r = await searchThreads(q, type, 50);
+        setItems(r.data);
+        setMeta({});
+        setDataSource("live-search");
       }
-      setItems(data.items || data.data || []);
-      setMeta({ keywords: data.keywords, preset: data.preset, fetchedAt: data.fetchedAt });
     } catch (e) {
       if (e instanceof ThreadsAuthError) {
         setAuthMissing(true);
@@ -201,6 +225,17 @@ export default function ThreadsTrendingPage() {
 
         {mode === "preset" && (
           <div className="space-y-3">
+            <label className="flex items-start gap-2 rounded-lg bg-emerald-50 p-2 text-xs dark:bg-emerald-900/20">
+              <input
+                type="checkbox"
+                checked={useCollected}
+                onChange={(e) => setUseCollected(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span className="text-emerald-800 dark:text-emerald-300">
+                <span className="font-medium">📦 자동 수집 모드</span> — GitHub Actions 가 6시간마다 자동 수집한 데이터 우선 사용 (likes/replies 수치 포함, 한도 0). 비어있으면 BYOT 라이브 검색으로 자동 fallback.
+              </span>
+            </label>
             <div>
               <label className="text-sm font-medium">카테고리</label>
               <select
@@ -351,9 +386,19 @@ export default function ThreadsTrendingPage() {
       )}
 
       {items.length > 0 && (
-        <div className="mb-3 text-sm text-muted-foreground">
-          {visibleItems.length}/{items.length}개 결과
-          {meta?.fetchedAt && ` · ${new Date(meta.fetchedAt).toLocaleString("ko-KR")}`}
+        <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{visibleItems.length}/{items.length}개 결과</span>
+          {dataSource === "github-collected" && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              📦 자동 수집 {staleMinutes !== null ? `· ${staleMinutes < 60 ? `${staleMinutes}분 전` : `${Math.floor(staleMinutes / 60)}시간 전`}` : ""}
+            </span>
+          )}
+          {dataSource === "live-search" && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              🔴 라이브 검색
+            </span>
+          )}
+          {meta?.fetchedAt && <span>· {new Date(meta.fetchedAt).toLocaleString("ko-KR")}</span>}
         </div>
       )}
 

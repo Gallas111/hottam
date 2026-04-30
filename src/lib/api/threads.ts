@@ -227,6 +227,86 @@ export async function enrichPosts(
   return json as { metrics: PostMetrics[]; summary: { total: number; scraped: number; cached: number; failed: number }; fetchedAt: string };
 }
 
+// ==================== GitHub-driven 자동 수집 데이터 (0 한도) ====================
+// hottam-threads-data repo 가 6시간마다 19 카테고리를 자동 수집해서 JSON commit.
+// raw.githubusercontent.com 으로 즉시 fetch — CDN 캐시, Browser Rendering 한도 영향 0.
+
+const COLLECTOR_RAW_BASE = "https://raw.githubusercontent.com/Gallas111/hottam-threads-data/main";
+
+export interface CollectedCategory {
+  preset: string;
+  keywords: string[];
+  fetchedAt: string;
+  items: ThreadsPost[];
+  summary: { total: number; enriched: number; failed: number };
+}
+
+export async function getCollectedTrending(preset: string): Promise<CollectedCategory | null> {
+  const slug = encodeURIComponent(preset).replace(/%/g, "_");
+  // Cache-bust 안 함 — raw CDN 가 ~5분 캐시. 6h 수집 주기와 잘 맞음.
+  try {
+    const r = await fetch(`${COLLECTOR_RAW_BASE}/data/trending/${slug}.json`, {
+      cache: "force-cache",  // 동일 페이지 재방문 시 추가 fetch 없음
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as CollectedCategory;
+  } catch {
+    return null;
+  }
+}
+
+export interface CollectorIndex {
+  generatedAt: string;
+  categories: { preset: string; slug?: string; path?: string; total?: number; enriched?: number; failed?: number; fetchedAt?: string; error?: string }[];
+}
+
+export async function getCollectorIndex(): Promise<CollectorIndex | null> {
+  try {
+    const r = await fetch(`${COLLECTOR_RAW_BASE}/data/index.json`, { cache: "force-cache" });
+    if (!r.ok) return null;
+    return (await r.json()) as CollectorIndex;
+  } catch {
+    return null;
+  }
+}
+
+// fallback chain: GitHub 수집 데이터 우선 → CF Browser Rendering 보완
+export async function getTrendingWithFallback(opts: {
+  preset: string;
+  type?: "TOP" | "RECENT";
+  perKeyword?: number;
+  preferCollected?: boolean;  // true 면 GitHub 수집 우선, 비어있을 때만 라이브 검색
+}): Promise<{
+  source: "github-collected" | "live-search";
+  items: ThreadsPost[];
+  fetchedAt: string;
+  preset: string;
+  staleMinutes?: number;  // GitHub 데이터의 신선도 (분 단위)
+}> {
+  if (opts.preferCollected !== false) {
+    const collected = await getCollectedTrending(opts.preset);
+    if (collected && collected.items.length > 0) {
+      const fetchedTime = new Date(collected.fetchedAt).getTime();
+      const staleMinutes = Math.floor((Date.now() - fetchedTime) / 60000);
+      return {
+        source: "github-collected",
+        items: collected.items,
+        fetchedAt: collected.fetchedAt,
+        preset: opts.preset,
+        staleMinutes,
+      };
+    }
+  }
+  // fallback — 기존 라이브 검색 (BYOT)
+  const live = await getTrending({ preset: opts.preset, type: opts.type, perKeyword: opts.perKeyword });
+  return {
+    source: "live-search",
+    items: live.items,
+    fetchedAt: live.fetchedAt,
+    preset: live.preset,
+  };
+}
+
 // 토큰 검증 (간단한 ping)
 export async function validateToken(): Promise<{ valid: boolean; profile?: ThreadsUser; error?: string }> {
   try {

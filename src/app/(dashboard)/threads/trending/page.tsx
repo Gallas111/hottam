@@ -183,19 +183,21 @@ export default function ThreadsTrendingPage() {
     }
   }
 
+  const [enrichInfo, setEnrichInfo] = useState<string | null>(null);
   async function handleEnrich() {
     const candidates = items.filter((p) => p.permalink && !p._metrics).slice(0, 30);
     if (candidates.length === 0) {
-      setEnrichError("permalink 있는 게시물 없음 또는 이미 모두 enrich 됨");
+      setEnrichInfo("이미 모든 게시물에 메트릭이 있습니다 — 추출할 필요 없음");
       return;
     }
     setEnriching(true);
     setEnrichError(null);
+    setEnrichInfo(null);
     try {
       const r = await enrichPosts(candidates.map((p) => ({ id: p.id, permalink: p.permalink! })));
       const byId: Record<string, PostMetrics> = {};
       for (const m of r.metrics) byId[m.id] = m;
-      // enrich 결과의 media_images / video_url 도 게시물에 머지 (검색 단계에서 못 잡은 미디어 보강)
+      // enrich 결과의 media_images / video_url / timestamp 모두 머지
       setItems((prev) => prev.map((p) => {
         const m = byId[p.id];
         if (!m) return p;
@@ -204,6 +206,7 @@ export default function ThreadsTrendingPage() {
           _metrics: m,
           media_images: (m.media_images && m.media_images.length > 0) ? m.media_images : p.media_images,
           video_url: m.video_url ?? p.video_url,
+          timestamp: m.timestamp_iso || p.timestamp,  // 정확한 작성 시각으로 갱신
         };
       }));
       setEnrichSummary({ scraped: r.summary.scraped, cached: r.summary.cached, failed: r.summary.failed });
@@ -484,6 +487,11 @@ export default function ThreadsTrendingPage() {
           ⚠ 수치 추출 실패: {enrichError} (검색 결과는 그대로 유지)
         </div>
       )}
+      {enrichInfo && (
+        <div className="mb-3 rounded-lg border border-border bg-secondary/40 p-2 text-xs text-muted-foreground">
+          ℹ {enrichInfo}
+        </div>
+      )}
 
       {items.length > 0 && (
         <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
@@ -537,19 +545,27 @@ export default function ThreadsTrendingPage() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{p.text}</p>
               {/* 첨부 이미지 (1~4장 grid) */}
               {p.media_images && p.media_images.length > 0 && (
-                <div className={`mt-3 grid gap-2 ${p.media_images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                  {p.media_images.slice(0, 4).map((src, i) => (
-                    <a key={i} href={p.permalink} target="_blank" rel="noopener noreferrer">
-                      <img
-                        src={src}
-                        alt={p.alt_text || ""}
-                        className="max-h-96 w-full rounded-lg object-cover hover:opacity-90"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
-                    </a>
-                  ))}
-                </div>
+                <>
+                  <div className={`mt-3 grid gap-2 ${p.media_images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {p.media_images.slice(0, 4).map((src, i) => (
+                      <a key={i} href={p.permalink} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={src}
+                          alt={p.alt_text || ""}
+                          className="max-h-96 w-full rounded-lg object-cover hover:opacity-90"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                  {/* 검색 단에서 1장만 잡힌 경우 — carousel 가능성 안내 */}
+                  {p.media_images.length === 1 && !p._metrics && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      📷 캐러셀일 수 있어요 — 🔥 수치 추출 누르면 모든 이미지가 보입니다
+                    </p>
+                  )}
+                </>
               )}
               {/* 첨부 비디오 (포스터 우선, src 있으면 재생) */}
               {p.video_url && (

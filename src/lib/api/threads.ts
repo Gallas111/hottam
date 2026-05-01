@@ -113,6 +113,7 @@ export interface PostMetrics {
   view_count: number;
   media_images?: string[];   // enrich 시 정확한 첨부 이미지
   video_url?: string | null;
+  timestamp_iso?: string | null;  // 게시물 작성 시각 (taken_at SSR)
   fetched_at: number;
   source: "scraped" | "cached" | "failed";
 }

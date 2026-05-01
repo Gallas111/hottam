@@ -5,10 +5,12 @@ import Link from "next/link";
 import { TrendingUp, Search, Hash, Loader2, ExternalLink, MessageCircle, Heart, Repeat2, Quote, Eye, Bookmark, BookmarkCheck, Flame } from "lucide-react";
 import { ThreadsIcon } from "@/components/ui/icons";
 import {
-  searchThreads,
+  scrapeSearchThreads,
+  scrapeSearchByTag,
   getTrending,
   enrichPosts,
   getTrendingWithFallback,
+  parseScrapedText,
   type ThreadsPost,
   type PostMetrics,
   ThreadsAuthError,
@@ -100,14 +102,58 @@ export default function ThreadsTrendingPage() {
         setMeta({ keywords: data.keywords, preset: data.preset, fetchedAt: data.fetchedAt });
         setDataSource("live-search");
       } else if (mode === "keyword") {
-        const r = await searchThreads(keyword, type, 50);
-        setItems(r.data);
+        // CF Browser Rendering 으로 threads.net 검색 페이지 직접 scrape (토큰 0)
+        const r = await scrapeSearchThreads(keyword, type, 50);
+        const items = r.posts.map((p) => {
+          const parsed = parseScrapedText(p.text || "", p.username || "");
+          const post: ThreadsPost = {
+            id: p.id,
+            text: parsed.body,
+            username: parsed.author.replace(/^@/, ""),
+            timestamp: new Date().toISOString(),
+            permalink: p.permalink,
+            media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
+            thumbnail_url: p.thumbnail_url || undefined,
+          };
+          if (parsed.metrics) {
+            post._metrics = {
+              id: p.id,
+              ...parsed.metrics,
+              view_count: 0,
+              fetched_at: Date.now(),
+              source: "scraped",
+            };
+          }
+          return post;
+        });
+        setItems(items);
         setMeta({});
         setDataSource("live-search");
       } else {
-        const q = hashtag.startsWith("#") ? hashtag : `#${hashtag}`;
-        const r = await searchThreads(q, type, 50);
-        setItems(r.data);
+        const r = await scrapeSearchByTag(hashtag, 50);
+        const items = r.posts.map((p) => {
+          const parsed = parseScrapedText(p.text || "", p.username || "");
+          const post: ThreadsPost = {
+            id: p.id,
+            text: parsed.body,
+            username: parsed.author.replace(/^@/, ""),
+            timestamp: new Date().toISOString(),
+            permalink: p.permalink,
+            media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
+            thumbnail_url: p.thumbnail_url || undefined,
+          };
+          if (parsed.metrics) {
+            post._metrics = {
+              id: p.id,
+              ...parsed.metrics,
+              view_count: 0,
+              fetched_at: Date.now(),
+              source: "scraped",
+            };
+          }
+          return post;
+        });
+        setItems(items);
         setMeta({});
         setDataSource("live-search");
       }
@@ -435,7 +481,7 @@ export default function ThreadsTrendingPage() {
               {p.media_url && p.media_type === "IMAGE" && (
                 <img src={p.media_url} alt={p.alt_text || ""} className="mt-3 max-h-96 rounded-lg object-cover" loading="lazy" />
               )}
-              {p.media_url && p.media_type === "VIDEO" && p.thumbnail_url && (
+              {p.thumbnail_url && (!p.media_url || p.media_type === "VIDEO") && (
                 <img src={p.thumbnail_url} alt={p.alt_text || ""} className="mt-3 max-h-96 rounded-lg object-cover" loading="lazy" />
               )}
               {/* engagement metric (enrich 후) */}

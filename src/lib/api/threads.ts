@@ -165,6 +165,46 @@ export async function searchThreads(
   );
 }
 
+// 토큰 불필요 — Worker 가 CF Browser Rendering 으로 threads.net 검색 페이지 직접 scrape.
+// Meta keyword_search dev mode 빈 결과 우회용.
+export async function scrapeSearchThreads(
+  query: string,
+  type: "TOP" | "RECENT" = "TOP",
+  limit = 25,
+): Promise<{ posts: ScrapedPost[]; source: "scraped" | "cached" | "failed"; query: string; type: string; error?: string }> {
+  const url = new URL(API_BASE + "/api/threads/scrape-search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("type", type);
+  url.searchParams.set("limit", String(limit));
+  const res = await fetch(url.toString());
+  const text = await res.text();
+  let json: unknown;
+  try { json = JSON.parse(text); } catch { throw new Error(`Invalid JSON (${res.status})`); }
+  if (!res.ok) {
+    const msg = (json as { error?: string })?.error || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return json as { posts: ScrapedPost[]; source: "scraped" | "cached" | "failed"; query: string; type: string; error?: string };
+}
+
+export async function scrapeSearchByTag(
+  tag: string,
+  limit = 25,
+): Promise<{ posts: ScrapedPost[]; source: "scraped" | "cached" | "failed"; tag: string; error?: string }> {
+  const url = new URL(API_BASE + "/api/threads/scrape-tag");
+  url.searchParams.set("tag", tag.replace(/^#/, ""));
+  url.searchParams.set("limit", String(limit));
+  const res = await fetch(url.toString());
+  const text = await res.text();
+  let json: unknown;
+  try { json = JSON.parse(text); } catch { throw new Error(`Invalid JSON (${res.status})`); }
+  if (!res.ok) {
+    const msg = (json as { error?: string })?.error || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return json as { posts: ScrapedPost[]; source: "scraped" | "cached" | "failed"; tag: string; error?: string };
+}
+
 export async function getTrending(opts: {
   preset?: string;
   keyword?: string;
@@ -233,12 +273,144 @@ export async function enrichPosts(
 
 const COLLECTOR_RAW_BASE = "https://raw.githubusercontent.com/Gallas111/hottam-threads-data/main";
 
+// collector 가 생성하는 raw 형식 (threads.net DOM scrape 결과)
+export interface ScrapedPost {
+  id: string;
+  username: string;       // "@username"
+  permalink: string;
+  text: string;           // "username Nh 본문... [Translate] 좋아요 댓글 ..."
+  has_image: boolean;
+  has_video: boolean;
+  thumbnail_url: string | null;
+  _keyword?: string;
+}
+
+export interface CollectedCategoryRaw {
+  preset: string;
+  keywords: string[];
+  fetchedAt: string;
+  items: ScrapedPost[];
+  summary: { total: number; enriched: number; failed: number };
+}
+
 export interface CollectedCategory {
   preset: string;
   keywords: string[];
   fetchedAt: string;
   items: ThreadsPost[];
   summary: { total: number; enriched: number; failed: number };
+}
+
+// "1.4K", "7.5K", "146" 등을 정수로 변환
+function parseHumanNumber(s: string): number {
+  if (!s) return 0;
+  const m = s.replace(/,/g, "").match(/^([\d.]+)([KkMm])?$/);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n)) return 0;
+  if (m[2] === "K" || m[2] === "k") return Math.round(n * 1000);
+  if (m[2] === "M" || m[2] === "m") return Math.round(n * 1_000_000);
+  return Math.round(n);
+}
+
+// "5h" / "1d" / "48m" / "04/15/26" 을 fetchedAt 기준 ISO timestamp 로 역산
+function ageToTimestamp(age: string | null, fetchedAt: string): string | null {
+  if (!age) return null;
+  const m = age.match(/^(\d+)\s*([smhd])$/);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    const unit = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }[m[2] as "s" | "m" | "h" | "d"];
+    const base = new Date(fetchedAt).getTime();
+    if (!Number.isFinite(base) || !Number.isFinite(num)) return null;
+    return new Date(base - num * unit).toISOString();
+  }
+  // 절대 날짜 "MM/DD/YY"
+  const d = age.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (d) {
+    const yr = d[3].length === 2 ? `20${d[3]}` : d[3];
+    return new Date(`${yr}-${d[1].padStart(2, "0")}-${d[2].padStart(2, "0")}T00:00:00Z`).toISOString();
+  }
+  return null;
+}
+
+// raw text 에서 author / age / body / 메트릭 분리
+export function parseScrapedText(rawText: string, knownUsername: string): {
+  author: string;
+  age: string | null;
+  body: string;
+  metrics: { like_count: number; reply_count: number; repost_count: number; quote_count: number } | null;
+} {
+  const uname = knownUsername.replace(/^@/, "");
+  let body = rawText;
+
+  // 1. 끝의 메트릭 추출 — "Translate? <num> <num>? <num>? <num>?" (최대 4개)
+  const tailRe = /\s+(?:Translate\s+)?((?:[\d.,]+[KkMm]?\s+){0,3}[\d.,]+[KkMm]?)\s*$/;
+  const tailMatch = body.match(tailRe);
+  let metrics: { like_count: number; reply_count: number; repost_count: number; quote_count: number } | null = null;
+  if (tailMatch && tailMatch.index !== undefined) {
+    const nums = tailMatch[1].trim().split(/\s+/).map(parseHumanNumber);
+    if (nums.length >= 1) {
+      metrics = {
+        like_count: nums[0] || 0,
+        reply_count: nums[1] || 0,
+        repost_count: nums[2] || 0,
+        quote_count: nums[3] || 0,
+      };
+      body = body.slice(0, tailMatch.index).replace(/\s*Translate\s*$/, "").trim();
+    }
+  }
+
+  // 2. 앞 username 제거
+  let age: string | null = null;
+  if (uname && body.startsWith(uname)) {
+    body = body.slice(uname.length).trimStart();
+  }
+  // 3. 시간 prefix 분리 — "5h", "48m", "04/15/26", "시즌 종료 2d" 등
+  const shortTime = body.match(/^(\d+\s*[smhd])\s+/);
+  if (shortTime) {
+    age = shortTime[1];
+    body = body.slice(shortTime[0].length);
+  } else {
+    const dateForm = body.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})\s+/);
+    if (dateForm) {
+      age = dateForm[1];
+      body = body.slice(dateForm[0].length);
+    } else {
+      const longTime = body.match(/^([^\d\s][^\d]{0,30}?\s+\d+\s*[smhd])\s+/);
+      if (longTime) {
+        age = longTime[1].trim();
+        body = body.slice(longTime[0].length);
+      }
+    }
+  }
+
+  return { author: "@" + uname, age, body: body.trim(), metrics };
+}
+
+// collector raw item → ThreadsPost (UI 가 기대하는 형식)
+function normalizeCollectedPost(p: ScrapedPost, fetchedAt: string): ThreadsPost {
+  const parsed = parseScrapedText(p.text || "", p.username || "");
+  const ts = ageToTimestamp(parsed.age, fetchedAt) || fetchedAt;
+  const post: ThreadsPost = {
+    id: p.id,
+    text: parsed.body,
+    username: parsed.author.replace(/^@/, ""),
+    timestamp: ts,
+    permalink: p.permalink,
+    media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
+    thumbnail_url: p.thumbnail_url || undefined,
+    _keyword: p._keyword,
+  };
+  if (parsed.metrics) {
+    post._metrics = {
+      id: p.id,
+      ...parsed.metrics,
+      view_count: 0,
+      fetched_at: new Date(fetchedAt).getTime(),
+      source: "scraped",
+    };
+  }
+  return post;
 }
 
 export async function getCollectedTrending(preset: string): Promise<CollectedCategory | null> {
@@ -249,7 +421,13 @@ export async function getCollectedTrending(preset: string): Promise<CollectedCat
       cache: "force-cache",  // 동일 페이지 재방문 시 추가 fetch 없음
     });
     if (!r.ok) return null;
-    return (await r.json()) as CollectedCategory;
+    const raw = (await r.json()) as CollectedCategoryRaw;
+    // raw collector 형식이면 normalize, 이미 ThreadsPost 형식이면 그대로
+    const looksRaw = raw.items?.[0] && "has_image" in (raw.items[0] as unknown as Record<string, unknown>);
+    const items: ThreadsPost[] = looksRaw
+      ? raw.items.map((p) => normalizeCollectedPost(p, raw.fetchedAt))
+      : (raw.items as unknown as ThreadsPost[]);
+    return { ...raw, items };
   } catch {
     return null;
   }

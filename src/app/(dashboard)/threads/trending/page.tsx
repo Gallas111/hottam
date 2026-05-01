@@ -11,6 +11,7 @@ import {
   enrichPosts,
   getTrendingWithFallback,
   parseScrapedText,
+  isKoreanPost,
   type ThreadsPost,
   type PostMetrics,
   ThreadsAuthError,
@@ -42,6 +43,7 @@ const PRESETS = [
 type Mode = "preset" | "keyword" | "hashtag";
 type TimeWindow = "all" | "24h" | "7d" | "30d";
 type SortMode = "default" | "likes" | "replies" | "reposts";
+type LangFilter = "all" | "ko" | "foreign";
 
 const WINDOW_MS: Record<TimeWindow, number> = {
   all: 0,
@@ -66,6 +68,7 @@ export default function ThreadsTrendingPage() {
 
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [sortMode, setSortMode] = useState<SortMode>("default");
+  const [langFilter, setLangFilter] = useState<LangFilter>("ko");  // 기본: 한국어만
   const [enriching, setEnriching] = useState(false);
   const [enrichSummary, setEnrichSummary] = useState<{ scraped: number; cached: number; failed: number } | null>(null);
   const [enrichError, setEnrichError] = useState<string | null>(null);
@@ -106,6 +109,7 @@ export default function ThreadsTrendingPage() {
         const r = await scrapeSearchThreads(keyword, type, 50);
         const items = r.posts.map((p) => {
           const parsed = parseScrapedText(p.text || "", p.username || "");
+          const px = p as typeof p & { media_images?: string[]; video_url?: string | null; video_poster?: string | null };
           const post: ThreadsPost = {
             id: p.id,
             text: parsed.body,
@@ -114,6 +118,9 @@ export default function ThreadsTrendingPage() {
             permalink: p.permalink,
             media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
             thumbnail_url: p.thumbnail_url || undefined,
+            media_images: px.media_images,
+            video_url: px.video_url ?? null,
+            video_poster: px.video_poster ?? null,
           };
           if (parsed.metrics) {
             post._metrics = {
@@ -133,6 +140,7 @@ export default function ThreadsTrendingPage() {
         const r = await scrapeSearchByTag(hashtag, 50);
         const items = r.posts.map((p) => {
           const parsed = parseScrapedText(p.text || "", p.username || "");
+          const px = p as typeof p & { media_images?: string[]; video_url?: string | null; video_poster?: string | null };
           const post: ThreadsPost = {
             id: p.id,
             text: parsed.body,
@@ -141,6 +149,9 @@ export default function ThreadsTrendingPage() {
             permalink: p.permalink,
             media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
             thumbnail_url: p.thumbnail_url || undefined,
+            media_images: px.media_images,
+            video_url: px.video_url ?? null,
+            video_poster: px.video_poster ?? null,
           };
           if (parsed.metrics) {
             post._metrics = {
@@ -181,7 +192,17 @@ export default function ThreadsTrendingPage() {
       const r = await enrichPosts(candidates.map((p) => ({ id: p.id, permalink: p.permalink! })));
       const byId: Record<string, PostMetrics> = {};
       for (const m of r.metrics) byId[m.id] = m;
-      setItems((prev) => prev.map((p) => byId[p.id] ? { ...p, _metrics: byId[p.id] } : p));
+      // enrich 결과의 media_images / video_url 도 게시물에 머지 (검색 단계에서 못 잡은 미디어 보강)
+      setItems((prev) => prev.map((p) => {
+        const m = byId[p.id];
+        if (!m) return p;
+        return {
+          ...p,
+          _metrics: m,
+          media_images: (m.media_images && m.media_images.length > 0) ? m.media_images : p.media_images,
+          video_url: m.video_url ?? p.video_url,
+        };
+      }));
       setEnrichSummary({ scraped: r.summary.scraped, cached: r.summary.cached, failed: r.summary.failed });
       // 첫 enrich 시 자동으로 likes 정렬로 전환
       if (sortMode === "default") setSortMode("likes");
@@ -200,6 +221,9 @@ export default function ThreadsTrendingPage() {
   // 클라이언트 필터 + 정렬
   const visibleItems = useMemo(() => {
     let arr = items;
+    // 언어 필터
+    if (langFilter === "ko") arr = arr.filter((p) => isKoreanPost(p));
+    else if (langFilter === "foreign") arr = arr.filter((p) => !isKoreanPost(p));
     if (timeWindow !== "all") {
       const cutoff = Date.now() - WINDOW_MS[timeWindow];
       arr = arr.filter((p) => {
@@ -214,7 +238,14 @@ export default function ThreadsTrendingPage() {
       arr = [...arr].sort((a, b) => (b._metrics?.[key] as number ?? -1) - (a._metrics?.[key] as number ?? -1));
     }
     return arr;
-  }, [items, timeWindow, sortMode]);
+  }, [items, timeWindow, sortMode, langFilter]);
+
+  // 언어별 카운트 (탭 라벨용)
+  const langCounts = useMemo(() => {
+    let ko = 0, foreign = 0;
+    for (const p of items) (isKoreanPost(p) ? ko++ : foreign++);
+    return { all: items.length, ko, foreign };
+  }, [items]);
 
   return (
     <div>
@@ -384,6 +415,26 @@ export default function ThreadsTrendingPage() {
         </div>
       )}
 
+      {/* 언어 탭 */}
+      {items.length > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-border bg-card p-2">
+          <span className="ml-1 mr-1 text-xs font-medium text-muted-foreground">언어</span>
+          {([
+            { key: "ko" as const, label: "🇰🇷 한국어", count: langCounts.ko },
+            { key: "foreign" as const, label: "🌍 외국어", count: langCounts.foreign },
+            { key: "all" as const, label: "전체", count: langCounts.all },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setLangFilter(tab.key)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${langFilter === tab.key ? "border-purple-500 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {tab.label} <span className="ml-1 opacity-70">({tab.count})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 시간 필터 + 수치 정렬 + enrich 버튼 */}
       {items.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
@@ -455,6 +506,9 @@ export default function ThreadsTrendingPage() {
           return (
             <article key={p.id} className="rounded-xl border border-border bg-card p-4 transition-shadow hover:shadow-md">
               <header className="mb-2 flex items-center gap-2 text-sm">
+                {p.thumbnail_url && (
+                  <img src={p.thumbnail_url} alt="" className="h-7 w-7 rounded-full object-cover" loading="lazy" />
+                )}
                 {p.username && <span className="font-medium">@{p.username}</span>}
                 {p._keyword && (
                   <span className="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
@@ -478,11 +532,41 @@ export default function ThreadsTrendingPage() {
                 </span>
               </header>
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{p.text}</p>
-              {p.media_url && p.media_type === "IMAGE" && (
-                <img src={p.media_url} alt={p.alt_text || ""} className="mt-3 max-h-96 rounded-lg object-cover" loading="lazy" />
+              {/* 첨부 이미지 (1~4장 grid) */}
+              {p.media_images && p.media_images.length > 0 && (
+                <div className={`mt-3 grid gap-2 ${p.media_images.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                  {p.media_images.slice(0, 4).map((src, i) => (
+                    <a key={i} href={p.permalink} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={src}
+                        alt={p.alt_text || ""}
+                        className="max-h-96 w-full rounded-lg object-cover hover:opacity-90"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </a>
+                  ))}
+                </div>
               )}
-              {p.thumbnail_url && (!p.media_url || p.media_type === "VIDEO") && (
-                <img src={p.thumbnail_url} alt={p.alt_text || ""} className="mt-3 max-h-96 rounded-lg object-cover" loading="lazy" />
+              {/* 첨부 비디오 (포스터 우선, src 있으면 재생) */}
+              {p.video_url && (
+                <video
+                  src={p.video_url}
+                  poster={p.video_poster || undefined}
+                  className="mt-3 max-h-96 w-full rounded-lg"
+                  controls
+                  preload="metadata"
+                />
+              )}
+              {/* 비디오 URL 없지만 포스터만 있는 경우 */}
+              {!p.video_url && p.video_poster && p.media_type === "VIDEO" && (
+                <a href={p.permalink} target="_blank" rel="noopener noreferrer">
+                  <img src={p.video_poster} alt="" className="mt-3 max-h-96 w-full rounded-lg object-cover" loading="lazy" />
+                </a>
+              )}
+              {/* 옛 형식 fallback (Meta API 응답) */}
+              {!p.media_images?.length && !p.video_url && !p.video_poster && p.media_url && p.media_type === "IMAGE" && (
+                <img src={p.media_url} alt={p.alt_text || ""} className="mt-3 max-h-96 rounded-lg object-cover" loading="lazy" />
               )}
               {/* engagement metric (enrich 후) */}
               {m && (

@@ -90,7 +90,10 @@ export interface ThreadsPost {
   permalink?: string;
   media_type?: "TEXT_POST" | "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM" | "AUDIO";
   media_url?: string;
-  thumbnail_url?: string;
+  thumbnail_url?: string;        // 작성자 프로필 사진
+  media_images?: string[];        // 첨부 이미지들 (최대 4장)
+  video_url?: string | null;      // 첨부 비디오
+  video_poster?: string | null;
   shortcode?: string;
   is_quote_post?: boolean;
   is_reply?: boolean;
@@ -108,8 +111,26 @@ export interface PostMetrics {
   repost_count: number;
   quote_count: number;
   view_count: number;
+  media_images?: string[];   // enrich 시 정확한 첨부 이미지
+  video_url?: string | null;
   fetched_at: number;
   source: "scraped" | "cached" | "failed";
+}
+
+// 본문 한글 비율 검사 — 한국어/외국어 분류
+export function isKoreanPost(post: { text?: string; body?: string }): boolean {
+  const t = (post.text || (post as { body?: string }).body || "").trim();
+  if (!t) return false;
+  let korean = 0;
+  let alpha = 0;
+  for (const ch of t) {
+    const code = ch.charCodeAt(0);
+    // 한글 음절(가-힣) + 자모
+    if ((code >= 0xAC00 && code <= 0xD7A3) || (code >= 0x1100 && code <= 0x11FF) || (code >= 0x3130 && code <= 0x318F)) korean++;
+    else if (code > 0x20 && code < 0x7F) alpha++;
+  }
+  // 한글이 있고, 한글이 영문보다 많거나 한글이 5자 이상이면 한국어로 분류
+  return korean >= 5 || (korean > 0 && korean >= alpha * 0.5);
 }
 
 export interface ThreadsListResponse<T> {
@@ -391,6 +412,7 @@ export function parseScrapedText(rawText: string, knownUsername: string): {
 function normalizeCollectedPost(p: ScrapedPost, fetchedAt: string): ThreadsPost {
   const parsed = parseScrapedText(p.text || "", p.username || "");
   const ts = ageToTimestamp(parsed.age, fetchedAt) || fetchedAt;
+  const px = p as ScrapedPost & { media_images?: string[]; video_url?: string | null; video_poster?: string | null };
   const post: ThreadsPost = {
     id: p.id,
     text: parsed.body,
@@ -399,6 +421,9 @@ function normalizeCollectedPost(p: ScrapedPost, fetchedAt: string): ThreadsPost 
     permalink: p.permalink,
     media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
     thumbnail_url: p.thumbnail_url || undefined,
+    media_images: px.media_images,
+    video_url: px.video_url ?? null,
+    video_poster: px.video_poster ?? null,
     _keyword: p._keyword,
   };
   if (parsed.metrics) {

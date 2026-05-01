@@ -46,6 +46,23 @@ type TimeWindow = "all" | "24h" | "7d" | "30d";
 type SortMode = "default" | "likes" | "replies" | "reposts";
 type LangFilter = "all" | "ko" | "foreign";
 
+// 영어 키워드 → 한국어 추천 (자주 쓰는 것만)
+const KO_HINTS: Record<string, string> = {
+  "ai": "인공지능 / 챗지피티 / AI 도구",
+  "chatgpt": "챗지피티 / ChatGPT 활용",
+  "crypto": "코인 / 비트코인 / 이더리움",
+  "btc": "비트코인",
+  "eth": "이더리움",
+  "stock": "주식 / 재테크",
+  "diet": "다이어트 / 헬스 / 운동",
+  "fashion": "패션 / 데일리룩 / 코디",
+  "travel": "여행 / 캠핑 / 국내여행",
+  "food": "맛집 / 요리 / 레시피",
+  "game": "게임 / 신작 / 공략",
+  "kpop": "케이팝 / 아이돌 / 최애",
+  "drama": "드라마 / 예능",
+};
+
 const WINDOW_MS: Record<TimeWindow, number> = {
   all: 0,
   "24h": 24 * 3600 * 1000,
@@ -349,9 +366,12 @@ export default function ThreadsTrendingPage() {
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="비트코인, 자취템, 부업 ..."
+              placeholder="인공지능, 챗지피티, 비트코인, 자취템 ..."
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              💡 한국어 키워드로 검색해야 한국어 게시물이 나옵니다 (Threads 검색 정책). 영어 키워드 → 영어 결과만.
+            </p>
           </div>
         )}
         {mode === "hashtag" && (
@@ -418,6 +438,13 @@ export default function ThreadsTrendingPage() {
               {k}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* 영어 키워드 검색 후 한국어 0건 안내 */}
+      {items.length > 0 && langCounts.ko === 0 && /^[A-Za-z0-9\s]+$/.test(keyword || "") && mode === "keyword" && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+          ⚠ 영어 키워드라 한국어 결과가 0건입니다. <strong>한국어 키워드</strong>로 검색해보세요 (예: <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/40">{keyword}</code> → <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/40">{KO_HINTS[keyword.toLowerCase()] || `${keyword} 한국 / 사용법 / 추천`}</code>)
         </div>
       )}
 

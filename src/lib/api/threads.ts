@@ -335,7 +335,7 @@ function parseHumanNumber(s: string): number {
 }
 
 // "5h" / "1d" / "48m" / "04/15/26" 을 fetchedAt 기준 ISO timestamp 로 역산
-function ageToTimestamp(age: string | null, fetchedAt: string): string | null {
+export function ageToTimestamp(age: string | null, fetchedAt: string): string | null {
   if (!age) return null;
   const m = age.match(/^(\d+)\s*([smhd])$/);
   if (m) {

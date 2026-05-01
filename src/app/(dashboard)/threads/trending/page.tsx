@@ -11,6 +11,7 @@ import {
   enrichPosts,
   getTrendingWithFallback,
   parseScrapedText,
+  ageToTimestamp,
   isKoreanPost,
   type ThreadsPost,
   type PostMetrics,
@@ -110,11 +111,12 @@ export default function ThreadsTrendingPage() {
         const items = r.posts.map((p) => {
           const parsed = parseScrapedText(p.text || "", p.username || "");
           const px = p as typeof p & { media_images?: string[]; video_url?: string | null; video_poster?: string | null };
+          const nowIso = new Date().toISOString();
           const post: ThreadsPost = {
             id: p.id,
             text: parsed.body,
             username: parsed.author.replace(/^@/, ""),
-            timestamp: new Date().toISOString(),
+            timestamp: ageToTimestamp(parsed.age, nowIso) || nowIso,
             permalink: p.permalink,
             media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
             thumbnail_url: p.thumbnail_url || undefined,
@@ -141,11 +143,12 @@ export default function ThreadsTrendingPage() {
         const items = r.posts.map((p) => {
           const parsed = parseScrapedText(p.text || "", p.username || "");
           const px = p as typeof p & { media_images?: string[]; video_url?: string | null; video_poster?: string | null };
+          const nowIso = new Date().toISOString();
           const post: ThreadsPost = {
             id: p.id,
             text: parsed.body,
             username: parsed.author.replace(/^@/, ""),
-            timestamp: new Date().toISOString(),
+            timestamp: ageToTimestamp(parsed.age, nowIso) || nowIso,
             permalink: p.permalink,
             media_type: p.has_video ? "VIDEO" : p.has_image ? "IMAGE" : "TEXT_POST",
             thumbnail_url: p.thumbnail_url || undefined,

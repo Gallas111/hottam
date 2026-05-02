@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Search, Eye, ThumbsUp, MessageCircle, Clock, BarChart3, TrendingUp, Zap, Hash } from "lucide-react";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 interface SearchResult {
   id: string;
@@ -49,7 +50,7 @@ export default function KeywordsPage() {
     if (value.trim().length >= 2) {
       suggestTimer.current = setTimeout(async () => {
         try {
-          const res = await fetch(`/api/youtube/suggest?q=${encodeURIComponent(value.trim())}`);
+          const res = await apiFetch(`/api/youtube/suggest?q=${encodeURIComponent(value.trim())}`);
           const data = await res.json();
           setSuggestions(data.suggestions || []);
           setShowSuggestions(true);

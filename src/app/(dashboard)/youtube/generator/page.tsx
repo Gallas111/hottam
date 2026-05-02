@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sparkles, Search, Copy, Check, FileText, Hash, Image, Type, Loader2, Eye, ThumbsUp } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 interface SearchResult {
   id: string;
@@ -157,7 +158,7 @@ export default function GeneratorPage() {
 
     try {
       // Fetch top videos for this keyword
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(keyword.trim())}&order=viewCount`);
+      const res = await apiFetch(`/api/youtube/search?q=${encodeURIComponent(keyword.trim())}&order=viewCount`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "검색 실패");
 

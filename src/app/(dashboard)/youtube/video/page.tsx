@@ -9,6 +9,7 @@ import {
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 interface VideoData {
   id: string;
@@ -237,14 +238,14 @@ export default function VideoAnalysisPage() {
 
     try {
       // Fetch video data
-      const res = await fetch(`/api/youtube/video?id=${encodeURIComponent(videoId)}`);
+      const res = await apiFetch(`/api/youtube/video?id=${encodeURIComponent(videoId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "영상을 찾을 수 없습니다");
       setVideo(data);
 
       // Fetch channel info
       try {
-        const chRes = await fetch(`/api/youtube/channel?q=${encodeURIComponent(data.channelId)}`);
+        const chRes = await apiFetch(`/api/youtube/channel?q=${encodeURIComponent(data.channelId)}`);
         if (chRes.ok) {
           const chData = await chRes.json();
           setChannelInfo({
@@ -264,7 +265,7 @@ export default function VideoAnalysisPage() {
       try {
         const keywords = data.title.replace(/[^가-힣a-zA-Z0-9\s]/g, " ").split(/\s+/).filter((w: string) => w.length >= 2).slice(0, 3).join(" ");
         if (keywords) {
-          const compRes = await fetch(`/api/youtube/search?q=${encodeURIComponent(keywords)}&order=viewCount`);
+          const compRes = await apiFetch(`/api/youtube/search?q=${encodeURIComponent(keywords)}&order=viewCount`);
           if (compRes.ok) {
             const compData = await compRes.json();
             setCompeting(

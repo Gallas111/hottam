@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 interface ChannelData {
   id: string;
@@ -124,7 +125,7 @@ export default function ChannelComparePage() {
     try {
       const results = await Promise.all(
         queries.map(async (q) => {
-          const res = await fetch(`/api/youtube/channel?q=${encodeURIComponent(q.trim())}`);
+          const res = await apiFetch(`/api/youtube/channel?q=${encodeURIComponent(q.trim())}`);
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || `"${q}" 채널을 찾을 수 없습니다`);
           return data as ChannelData;

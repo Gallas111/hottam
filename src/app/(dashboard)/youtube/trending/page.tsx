@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { TrendingUp, Eye, ThumbsUp, MessageCircle, Clock, Loader2, ChevronDown, Search, X, Flame, Zap } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 const CATEGORY_KO: Record<string, string> = {
   "Film & Animation": "영화/애니메이션",
@@ -328,7 +329,7 @@ export default function YouTubeTrendingPage() {
         params.set("max", "30");
       }
 
-      const res = await fetch(`/api/youtube/trending?${params}`);
+      const res = await apiFetch(`/api/youtube/trending?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setVideos(data.videos);

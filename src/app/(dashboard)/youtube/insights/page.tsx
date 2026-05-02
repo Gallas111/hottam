@@ -13,6 +13,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
+import { apiFetch } from "@/lib/api/base";
 import { UsageGuide } from "@/components/ui/usage-guide";
 
 interface VideoItem {
@@ -55,7 +56,7 @@ export default function YouTubeInsightsPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch("/api/youtube/trending?max=50");
+        const res = await apiFetch("/api/youtube/trending?max=50");
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         setVideos(data.videos || []);

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Copy, Download, Eye, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 interface SourceVideo {
   videoId: string;
@@ -55,7 +56,7 @@ function RemakeInner() {
     setSourceLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/research/remake?videoId=${encodeURIComponent(vid)}`);
+      const res = await apiFetch(`/api/research/remake?videoId=${encodeURIComponent(vid)}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
       setSource(json.source);
@@ -80,7 +81,7 @@ function RemakeInner() {
     setErr(null);
     setPlan(null);
     try {
-      const res = await fetch("/api/research/remake", {
+      const res = await apiFetch("/api/research/remake", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

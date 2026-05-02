@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { UsageGuide } from "@/components/ui/usage-guide";
+import { apiFetch } from "@/lib/api/base";
 
 /* ─── constants ─── */
 
@@ -332,7 +333,7 @@ export default function TitleOptimizerPage() {
   // fetch trending titles
   useEffect(() => {
     setTrendingLoading(true);
-    fetch("/api/youtube/trending?max=5")
+    apiFetch("/api/youtube/trending?max=5")
       .then((r) => r.json())
       .then((data) => {
         const items = (data.items || data || [])
